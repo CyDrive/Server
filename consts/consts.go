@@ -1,10 +1,11 @@
 package consts
 
 const (
-	ListenPort       = ":6454"
-	FtmListenPort    = 6455
-	FtmListenPortStr = ":6455"
-	UserDataDir      = "user_data"
+	HttpListenPort    = 6454
+	HttpListenPortStr = ":6454"
+	RpcListenPort     = 6455
+	RpcListenPortStr  = ":6455"
+	UserDataDir       = "user_data"
 )
 
 type CdpStatus = int

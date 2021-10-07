@@ -47,5 +47,5 @@ func RunServer() {
 	router.PUT("/file/*path", UploadHandle)
 
 	go ftm.Listen()
-	router.Run(ListenPort)
+	router.Run(HttpListenPortStr)
 }

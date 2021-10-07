@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+option go_package = "github.com/CyDrive/Server/storage/rpc";
+
+package rpc;
+
+service Manage {
+    rpc JoinCluster (JoinClusterRequest) returns (JoinClusterResponse) {}
+    rpc HeartBeats (HeartBeatsRequest) returns (HeartBeatsResponse) {}
+}
+
+
+enum StorageNodeType {
+    Public = 0;
+    Private = 1;
+}
+
+message JoinClusterRequest {
+    int64 capacity = 1;
+    int64 usage = 2;
+    StorageNodeType type = 3;
+}
+
+message JoinClusterResponse {
+    int32 id = 1;
+}
+
+message HeartBeatsRequest {
+    int32 id = 1;
+    int64 storage_usage = 2;
+    int32 cpu_usage_percent = 3;
+    int32 task_num = 4;
+}
+
+message HeartBeatsResponse {
+}
+
+
+
