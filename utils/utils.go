@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/yah01/CyDrive/consts"
-	"github.com/yah01/CyDrive/model"
+	"github.com/CyDrive/consts"
+	"github.com/CyDrive/model"
 )
 
 const (

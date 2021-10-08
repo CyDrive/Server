@@ -1,4 +1,4 @@
-package main
+package master
 
 import (
 	"encoding/json"
@@ -10,17 +10,12 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/CyDrive/consts"
+	"github.com/CyDrive/master/store"
+	"github.com/CyDrive/model"
+	"github.com/CyDrive/utils"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	. "github.com/yah01/CyDrive/consts"
-	"github.com/yah01/CyDrive/env"
-	"github.com/yah01/CyDrive/model"
-	"github.com/yah01/CyDrive/utils"
-)
-
-var (
-	localEnv   = env.NewLocalEnv()
-	currentEnv env.Env
 )
 
 func LoginHandle(c *gin.Context) {
@@ -44,7 +39,8 @@ func LoginHandle(c *gin.Context) {
 		return
 	}
 
-	user := userStore.GetUserByName(username)
+	accountStore := store.GetAccountStore()
+	user := accountStore.GetUserByName(username)
 	if user == nil {
 		c.JSON(http.StatusOK, model.Resp{
 			Status:  StatusAuthError,
@@ -102,7 +98,7 @@ func ListHandle(c *gin.Context) {
 	path = strings.Trim(path, "/")
 	absPath := strings.Join([]string{user.RootDir, path}, "/")
 
-	fileList, err := currentEnv.ReadDir(absPath)
+	fileList, err := GetEnv().ReadDir(absPath)
 	for i := range fileList {
 		fileList[i].FilePath = strings.ReplaceAll(fileList[i].FilePath, "\\", "/")
 		fileList[i].FilePath = strings.TrimPrefix(fileList[i].FilePath, user.RootDir)
@@ -140,7 +136,7 @@ func GetFileInfoHandle(c *gin.Context) {
 	filePath = strings.Trim(filePath, "/")
 	absFilePath := filepath.Join(user.RootDir, filePath)
 
-	fileInfo, err := currentEnv.Stat(absFilePath)
+	fileInfo, err := GetEnv().Stat(absFilePath)
 	if err != nil {
 		c.JSON(http.StatusOK, model.Resp{
 			Status:  StatusIoError,
@@ -165,7 +161,7 @@ func PutFileInfoHandle(c *gin.Context) {
 	filePath = strings.Trim(filePath, "/")
 	absFilePath := filepath.Join(user.RootDir, filePath)
 
-	_, err := currentEnv.Stat(absFilePath)
+	_, err := GetEnv().Stat(absFilePath)
 	if err != nil {
 		c.JSON(http.StatusOK, model.Resp{
 			Status:  StatusIoError,
@@ -189,7 +185,7 @@ func PutFileInfoHandle(c *gin.Context) {
 		return
 	}
 
-	openFile, err := currentEnv.OpenFile(absFilePath, os.O_RDWR, os.FileMode(fileInfo.FileMode))
+	openFile, err := GetEnv().OpenFile(absFilePath, os.O_RDWR, os.FileMode(fileInfo.FileMode))
 	if err != nil {
 		c.JSON(http.StatusOK, model.Resp{
 			Status:  StatusIoError,
@@ -209,7 +205,7 @@ func PutFileInfoHandle(c *gin.Context) {
 		return
 	}
 
-	if err = currentEnv.Chtimes(absFilePath, time.Now(), time.Unix(fileInfo.ModifyTime, 0)); err != nil {
+	if err = GetEnv().Chtimes(absFilePath, time.Now(), time.Unix(fileInfo.ModifyTime, 0)); err != nil {
 		c.JSON(http.StatusOK, model.Resp{
 			Status:  StatusInternalError,
 			Message: err.Error(),
@@ -235,7 +231,7 @@ func DownloadHandle(c *gin.Context) {
 
 	// absolute filepath
 	filePath = strings.Join([]string{user.RootDir, filePath}, "/")
-	fileInfo, _ := currentEnv.Stat(filePath)
+	fileInfo, _ := GetEnv().Stat(filePath)
 
 	if fileInfo.IsDir() {
 		c.JSON(http.StatusOK, model.Resp{
@@ -252,7 +248,7 @@ func DownloadHandle(c *gin.Context) {
 		begin, _ = utils.UnpackRange(bytesRange)
 	}
 
-	taskId := ftm.AddTask(&fileInfo, user, DownloadTaskType, begin)
+	taskId := GetFileTransferManager().AddTask(&fileInfo, user, DownloadTaskType, begin)
 
 	uFileInfo := fileInfo
 	uFileInfo.FilePath, _ = filepath.Rel(user.RootDir, uFileInfo.FilePath)
@@ -281,7 +277,7 @@ func UploadHandle(c *gin.Context) {
 
 	filePath = strings.Join([]string{user.RootDir, filePath}, "/")
 	fileDir := filepath.Dir(filePath)
-	if err := currentEnv.MkdirAll(fileDir, 0666); err != nil {
+	if err := GetEnv().MkdirAll(fileDir, 0666); err != nil {
 		c.JSON(http.StatusOK, model.Resp{
 			Status:  StatusInternalError,
 			Message: err.Error(),
@@ -302,7 +298,7 @@ func UploadHandle(c *gin.Context) {
 	if len(jsonBytes) == 0 || json.Unmarshal(jsonBytes, &fileInfo) != nil {
 		c.JSON(http.StatusOK, model.Resp{
 			Status:  StatusInternalError,
-			Message: fmt.Sprintf("need file info"),
+			Message: "need file info",
 		})
 		return
 	}
@@ -344,7 +340,7 @@ func UploadHandle(c *gin.Context) {
 	//
 	// saveFile.Close()
 	//
-	// if err = currentEnv.Chtimes(filePath, time.Now(), time.Unix(fileInfo.ModifyTime, 0)); err != nil {
+	// if err = GetEnv().Chtimes(filePath, time.Now(), time.Unix(fileInfo.ModifyTime, 0)); err != nil {
 	// 	c.JSON(http.StatusOK, model.Resp{
 	// 		Status:  StatusInternalError,
 	// 		Message: err.Error(),

@@ -1,4 +1,4 @@
-package main
+package master
 
 import (
 	"encoding/json"
@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/CyDrive/consts"
+	"github.com/CyDrive/model"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	. "github.com/yah01/CyDrive/consts"
-	"github.com/yah01/CyDrive/model"
 )
 
 func LoginAuth(router *gin.Engine) gin.HandlerFunc {

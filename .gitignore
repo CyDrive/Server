@@ -9,3 +9,5 @@ client/desktop/desktop
 client/.DS_Store
 main
 log
+master/bin/*
+!master/bin/main.go

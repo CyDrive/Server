@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/yah01/CyDrive/model"
+	"github.com/CyDrive/model"
 )
 
 type FileHandle interface {

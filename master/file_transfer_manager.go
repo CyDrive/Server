@@ -1,4 +1,4 @@
-package main
+package master
 
 import (
 	"bufio"
@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/CyDrive/consts"
+	"github.com/CyDrive/model"
+	"github.com/CyDrive/utils"
 	log "github.com/sirupsen/logrus"
-	"github.com/yah01/CyDrive/consts"
-	"github.com/yah01/CyDrive/model"
-	"github.com/yah01/CyDrive/utils"
 )
 
 type TaskType int32
@@ -107,7 +107,7 @@ func (ftm *FileTransferManager) AddTask(fileInfo *model.FileInfo, user *model.Us
 }
 
 func (ftm *FileTransferManager) DownloadHandle(task *Task) {
-	file, err := currentEnv.Open(task.FileInfo.FilePath)
+	file, err := GetEnv().Open(task.FileInfo.FilePath)
 	if err != nil {
 		log.Errorf("open file %+v error: %+v", task.FileInfo.FilePath, err)
 		// todo: notify user by message channel
@@ -145,7 +145,7 @@ func (ftm *FileTransferManager) DownloadHandle(task *Task) {
 func (ftm *FileTransferManager) UploadHandle(task *Task) {
 	filePath := filepath.Join(task.User.RootDir, task.FileInfo.FilePath)
 
-	file, err := currentEnv.OpenFile(filePath, os.O_CREATE|os.O_APPEND, os.FileMode(task.FileInfo.FileMode))
+	file, err := GetEnv().OpenFile(filePath, os.O_CREATE|os.O_APPEND, os.FileMode(task.FileInfo.FileMode))
 	if err != nil {
 		log.Errorf("open file %+v error: %+v", filePath, err)
 		// todo: notify user by message channel

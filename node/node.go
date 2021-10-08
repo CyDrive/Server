@@ -5,10 +5,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/CyDrive/node/config"
+	"github.com/CyDrive/rpc"
+	"github.com/CyDrive/utils"
 	"github.com/sirupsen/logrus"
-	"github.com/yah01/CyDrive/node/config"
-	"github.com/yah01/CyDrive/rpc"
-	"github.com/yah01/CyDrive/utils"
 	"google.golang.org/grpc"
 )
 
@@ -18,8 +18,8 @@ type StorageNode struct {
 	Id    int32
 
 	heartBeatTimer *time.Timer
-	conn       *grpc.ClientConn
-	grpcClient rpc.ManageClient
+	conn           *grpc.ClientConn
+	grpcClient     rpc.ManageClient
 
 	log *logrus.Logger
 }
@@ -44,7 +44,7 @@ func NewStorageNode(config config.Config) *StorageNode {
 
 		heartBeatTimer: time.NewTimer(250 * time.Millisecond),
 
-		log:    log,
+		log: log,
 	}
 
 	return &node
@@ -67,7 +67,7 @@ func (node *StorageNode) Start() {
 		break
 	}
 
-	go func ()  {
+	go func() {
 		for {
 			select {
 			case <-node.heartBeatTimer.C:
@@ -75,7 +75,7 @@ func (node *StorageNode) Start() {
 				node.HeartBeat()
 			}
 		}
-	}
+	}()
 }
 
 func (node *StorageNode) JoinCluster() error {

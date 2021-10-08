@@ -6,15 +6,23 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/CyDrive/config"
+	. "github.com/CyDrive/consts"
+	"github.com/CyDrive/model"
+	"github.com/CyDrive/utils"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
-	"github.com/yah01/CyDrive/config"
-	. "github.com/yah01/CyDrive/consts"
-	"github.com/yah01/CyDrive/model"
-	"github.com/yah01/CyDrive/utils"
 )
 
-type UserStore interface {
+var (
+	accountStore AccountStore = NewMemStore("user_data/user.json")
+)
+
+func GetAccountStore() AccountStore {
+	return accountStore
+}
+
+type AccountStore interface {
 	GetUserByName(name string) *model.User
 }
 
@@ -33,7 +41,7 @@ func NewMemStore(userJson string) *MemStore {
 	json.Unmarshal(data, &userArray)
 	for _, user := range userArray {
 		// Get the storage usage
-		user.Usage,_ = utils.DirSize(user.RootDir)
+		user.Usage, _ = utils.DirSize(user.RootDir)
 
 		store.userNameMap[user.Username] = user
 	}

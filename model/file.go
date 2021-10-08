@@ -4,7 +4,7 @@ import (
 	"os"
 	"reflect"
 
-	"github.com/yah01/CyDrive/consts"
+	"github.com/CyDrive/consts"
 )
 
 type FileInfo struct {
@@ -21,7 +21,7 @@ func NewFileInfo(fileInfo os.FileInfo, path string) FileInfo {
 		FileMode:     uint32(fileInfo.Mode()),
 		ModifyTime:   fileInfo.ModTime().Unix(),
 		FilePath:     path,
-		Size_:         fileInfo.Size(),
+		Size_:        fileInfo.Size(),
 		IsDir_:       fileInfo.IsDir(),
 		IsCompressed: fileInfo.Size() > consts.CompressBaseline,
 	}

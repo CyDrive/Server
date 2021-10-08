@@ -2,38 +2,37 @@ package master
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
-	pb "../rpc"
-	"github.com/yah01/CyDrive/master/node_manager"
+	"github.com/CyDrive/master/node_manager"
+	"github.com/CyDrive/rpc"
 )
 
-func (m *Master) JoinCluster(ctx context.Context, req *pb.JoinClusterRequest) (resp *pb.JoinClusterResponse, error) {
+func (s *NodeManagerServer) JoinCluster(ctx context.Context, req *rpc.JoinClusterRequest) (*rpc.JoinClusterResponse, error) {
 	nodeManager := node_manager.GetNodeManager()
-	
+
 	node := node_manager.NewNode(req.Capacity, req.Usage)
 
 	nodeManager.AddNode(node)
 
-	resp = &pb.JoinClusterResponse{
+	resp := &rpc.JoinClusterResponse{
 		Id: node.Id,
 	}
 
 	return resp, nil
 }
 
-func (m *Master) HeartBeats(ctx context.Context, req *pb.HeartBeatsRequest) (resp *pb.HeartBeatsResponse, error) {
+func (s *NodeManagerServer) HeartBeats(ctx context.Context, req *rpc.HeartBeatsRequest) (*rpc.HeartBeatsResponse, error) {
 	nodeManager := node_manager.GetNodeManager()
 
 	node := nodeManager.GetNode(req.Id)
 	if node == nil {
-		return nil,fmt.Errorf("no such node, join cluster first")
+		return nil, fmt.Errorf("no such node, join cluster first")
 	}
 
 	node.LastHeartBeatTime = time.Now()
 
-	resp = &pb.HeartBeatsResponse{}
-	return resp,nil
+	resp := &rpc.HeartBeatsResponse{}
+	return resp, nil
 }

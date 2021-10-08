@@ -5,6 +5,8 @@ const (
 	HttpListenPortStr = ":6454"
 	RpcListenPort     = 6455
 	RpcListenPortStr  = ":6455"
+	FtmListenPort     = 6456
+	FtmListenPortStr  = ":6456"
 	UserDataDir       = "user_data"
 )
 

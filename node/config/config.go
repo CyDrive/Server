@@ -1,6 +1,6 @@
 package config
 
-import "github.com/yah01/CyDrive/rpc"
+import "github.com/CyDrive/rpc"
 
 type Config struct {
 	MasterAddr string
