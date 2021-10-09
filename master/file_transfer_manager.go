@@ -29,7 +29,7 @@ var (
 
 type Task struct {
 	// filled when the server deliver task id
-	Id        int64
+	Id        int32
 	FileInfo  *model.FileInfo
 	User      *model.User
 	Expire    time.Duration
@@ -54,10 +54,10 @@ func NewFileTransferManager() *FileTransferManager {
 	}
 }
 
-func (ftm *FileTransferManager) Listen() error {
+func (ftm *FileTransferManager) Listen() {
 	listener, err := net.ListenTCP("tcp", &net.TCPAddr{Port: consts.FtmListenPort})
 	if err != nil {
-		return err
+		panic(err)
 	}
 
 	for {
@@ -91,7 +91,7 @@ func (ftm *FileTransferManager) Listen() error {
 	}
 }
 
-func (ftm *FileTransferManager) AddTask(fileInfo *model.FileInfo, user *model.User, taskType TaskType, doneBytes int64) int64 {
+func (ftm *FileTransferManager) AddTask(fileInfo *model.FileInfo, user *model.User, taskType TaskType, doneBytes int64) int32 {
 	taskId := ftm.idGen.NextAndRef()
 	ftm.taskMap.Store(taskId, &Task{
 		Id:        taskId,

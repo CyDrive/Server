@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
 	. "github.com/CyDrive/consts"
 	"github.com/CyDrive/model"
@@ -24,7 +25,6 @@ func LoginHandle(c *gin.Context) {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_AuthError,
 			Message:    "no user name",
-			Data:       nil,
 		})
 		return
 	}
@@ -34,7 +34,6 @@ func LoginHandle(c *gin.Context) {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_AuthError,
 			Message:    "no password",
-			Data:       nil,
 		})
 		return
 	}
@@ -44,7 +43,6 @@ func LoginHandle(c *gin.Context) {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_AuthError,
 			Message:    "no such user",
-			Data:       nil,
 		})
 		return
 	}
@@ -52,7 +50,6 @@ func LoginHandle(c *gin.Context) {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_AuthError,
 			Message:    "user name or password not correct",
-			Data:       nil,
 		})
 		return
 	}
@@ -66,7 +63,16 @@ func LoginHandle(c *gin.Context) {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_InternalError,
 			Message:    err.Error(),
-			Data:       nil,
+		})
+		return
+	}
+
+	safeUser := utils.PackSafeUser(user)
+	userBytes, err := json.Marshal(safeUser)
+	if err != nil {
+		c.JSON(http.StatusOK, model.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
 		})
 		return
 	}
@@ -74,7 +80,7 @@ func LoginHandle(c *gin.Context) {
 	c.JSON(http.StatusOK, model.Response{
 		StatusCode: consts.StatusCode_Ok,
 		Message:    "Welcome to CyDrive!",
-		Data:       utils.PackSafeUser(user),
+		Data:       string(userBytes),
 	})
 }
 
@@ -96,7 +102,6 @@ func ListHandle(c *gin.Context) {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_IoError,
 			Message:    err.Error(),
-			Data:       nil,
 		})
 		return
 	}
@@ -106,7 +111,6 @@ func ListHandle(c *gin.Context) {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_InternalError,
 			Message:    err.Error(),
-			Data:       nil,
 		})
 		return
 	}
@@ -130,7 +134,15 @@ func GetFileInfoHandle(c *gin.Context) {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_IoError,
 			Message:    err.Error(),
-			Data:       nil,
+		})
+		return
+	}
+
+	fileInfoBytes, err := json.Marshal(fileInfo)
+	if err != nil {
+		c.JSON(http.StatusOK, model.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
 		})
 		return
 	}
@@ -138,7 +150,7 @@ func GetFileInfoHandle(c *gin.Context) {
 	c.JSON(http.StatusOK, model.Response{
 		StatusCode: consts.StatusCode_Ok,
 		Message:    "get file info done",
-		Data:       fileInfo,
+		Data:       string(fileInfoBytes),
 	})
 }
 
@@ -233,19 +245,25 @@ func DownloadHandle(c *gin.Context) {
 	uFileInfo := fileInfo
 	uFileInfo.FilePath, _ = filepath.Rel(user.DataDir, uFileInfo.FilePath)
 	uFileInfo.FilePath = strings.ReplaceAll(uFileInfo.FilePath, "\\", "/")
-	jsonBytes, err := json.Marshal(uFileInfo)
+
+	resp := model.DownloadResponse{
+		NodeAddr: config.IpAddr,
+		TaskId:   taskId,
+		FileInfo: &uFileInfo,
+	}
+	respBytes, err := json.Marshal(resp)
 	if err != nil {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_InternalError,
-			Message:    fmt.Sprintf("serialize file info failed: %+v", err),
+			Message:    err.Error(),
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, model.Response{
 		StatusCode: consts.StatusCode_Ok,
-		Message:    fmt.Sprint(taskId),
-		Data:       string(jsonBytes),
+		Message:    "download task created",
+		Data:       string(respBytes),
 	})
 }
 
@@ -265,7 +283,7 @@ func UploadHandle(c *gin.Context) {
 		return
 	}
 
-	var fileInfo model.FileInfo
+	var req model.UploadRequest
 
 	jsonBytes, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
@@ -275,13 +293,15 @@ func UploadHandle(c *gin.Context) {
 		})
 		return
 	}
-	if len(jsonBytes) == 0 || json.Unmarshal(jsonBytes, &fileInfo) != nil {
+	if len(jsonBytes) == 0 || json.Unmarshal(jsonBytes, &req) != nil {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_InternalError,
 			Message:    "need file info",
 		})
 		return
 	}
+
+	fileInfo := req.FileInfo
 
 	// Check file size
 	if fileInfo.Size > FileSizeLimit {
@@ -302,30 +322,34 @@ func UploadHandle(c *gin.Context) {
 		return
 	}
 
-	taskId := ftm.AddTask(&fileInfo, user, UploadTaskType, fileInfo.Size)
+	// Change the modified time
+	if err = GetEnv().Chtimes(filePath, time.Now(), time.Unix(fileInfo.ModifyTime, 0)); err != nil {
+		c.JSON(http.StatusOK, model.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
+		})
+		return
+	}
+
+	taskId := ftm.AddTask(fileInfo, user, UploadTaskType, fileInfo.Size)
+
+	resp := model.UploadResponse{
+		NodeAddr: config.IpAddr,
+		TaskId:   taskId,
+	}
+
+	respBytes, err := json.Marshal(resp)
+	if err != nil {
+		c.JSON(http.StatusOK, model.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
+		})
+		return
+	}
 
 	c.JSON(http.StatusOK, model.Response{
 		StatusCode: consts.StatusCode_Ok,
-		Message:    fmt.Sprint(taskId),
+		Message:    "upload task created",
+		Data:       string(respBytes),
 	})
-
-	// if err = saveFile.Chmod(os.FileMode(fileInfo.FileMode)); err != nil {
-	// 	c.JSON(http.StatusOK, model.Resp{
-	// 		StatusCode:  consts.StatusCode_InternalError,
-	// 		Message: err.Error(),
-	// 		Data:    nil,
-	// 	})
-	// 	return
-	// }
-	//
-	// saveFile.Close()
-	//
-	// if err = GetEnv().Chtimes(filePath, time.Now(), time.Unix(fileInfo.ModifyTime, 0)); err != nil {
-	// 	c.JSON(http.StatusOK, model.Resp{
-	// 		StatusCode:  consts.StatusCode_InternalError,
-	// 		Message: err.Error(),
-	// 		Data:    nil,
-	// 	})
-	// 	return
-	// }
 }

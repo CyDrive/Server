@@ -2,6 +2,10 @@ package config
 
 import "fmt"
 
+var (
+	IpAddr = "123.57.39.79"
+)
+
 type Config struct {
 	// "rdb" or "mem"
 	AccountStoreType string

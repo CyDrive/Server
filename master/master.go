@@ -78,4 +78,7 @@ func (m *Master) Start() {
 	grpcServer := grpc.NewServer()
 	rpc.RegisterManageServer(grpcServer, m.nodeManagerServer)
 	go grpcServer.Serve(listen)
+
+	// Start FileTransferManager
+	go m.fileTransferManager.Listen()
 }

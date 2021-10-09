@@ -13,8 +13,9 @@ message FileInfo {
 }
 
 message DownloadResponse {
-    int32 task_id = 1;
-    FileInfo file_info = 2;
+    string node_addr = 1;
+    int32 task_id = 2;
+    FileInfo file_info = 3;
 }
 
 message UploadRequest {
@@ -22,6 +23,7 @@ message UploadRequest {
 }
 
 message UploadResponse {
-    int32 task_id = 1;
+    string node_addr = 1;
+    int32 task_id = 2;
 }
 

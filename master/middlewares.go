@@ -25,7 +25,6 @@ func LoginAuth(router *gin.Engine) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusOK, model.Response{
 				StatusCode: consts.StatusCode_AuthError,
 				Message:    "not login",
-				Data:       nil,
 			})
 			return
 		}
@@ -34,7 +33,6 @@ func LoginAuth(router *gin.Engine) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusOK, model.Response{
 				StatusCode: consts.StatusCode_AuthError,
 				Message:    "timeout, login again",
-				Data:       nil,
 			})
 			userSession.Clear()
 			return
@@ -46,7 +44,6 @@ func LoginAuth(router *gin.Engine) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusOK, model.Response{
 				StatusCode: consts.StatusCode_SessionError,
 				Message:    err.Error(),
-				Data:       nil,
 			})
 			return
 		}
