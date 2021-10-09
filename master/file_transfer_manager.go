@@ -133,7 +133,7 @@ func (ftm *FileTransferManager) DownloadHandle(task *Task) {
 		}
 
 		totalBytes += written
-		if totalBytes >= task.FileInfo.Size_ {
+		if totalBytes >= task.FileInfo.Size {
 			log.Infof("upload task finish")
 			break
 		}
@@ -145,7 +145,7 @@ func (ftm *FileTransferManager) DownloadHandle(task *Task) {
 func (ftm *FileTransferManager) UploadHandle(task *Task) {
 	filePath := filepath.Join(task.User.RootDir, task.FileInfo.FilePath)
 
-	file, err := GetEnv().OpenFile(filePath, os.O_CREATE|os.O_APPEND, os.FileMode(task.FileInfo.FileMode))
+	file, err := GetEnv().OpenFile(filePath, os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Errorf("open file %+v error: %+v", filePath, err)
 		// todo: notify user by message channel
@@ -167,7 +167,7 @@ func (ftm *FileTransferManager) UploadHandle(task *Task) {
 		}
 
 		totalBytes += written
-		if totalBytes >= task.FileInfo.Size_ {
+		if totalBytes >= task.FileInfo.Size {
 			log.Infof("upload task finish")
 			break
 		}

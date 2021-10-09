@@ -53,6 +53,16 @@ func UnpackRange(rangeStr string) (int64, int64) {
 	return begin, end
 }
 
+func NewFileInfo(fileInfo os.FileInfo, path string) model.FileInfo {
+	return model.FileInfo{
+		ModifyTime:   fileInfo.ModTime().Unix(),
+		FilePath:     path,
+		Size:         fileInfo.Size(),
+		IsDir:        fileInfo.IsDir(),
+		IsCompressed: fileInfo.Size() > consts.CompressBaseline,
+	}
+}
+
 func DirSize(path string) (int64, error) {
 	var size int64
 	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
@@ -118,16 +128,16 @@ func ForEachFile(path string, handle func(file *os.File)) {
 }
 
 func ForEachRemoteFile(path string,
-		getFileInfo func(path string) *model.FileInfo,
-		readDir func(path string) []*model.FileInfo,
-		handle func(file *model.FileInfo)) {
+	getFileInfo func(path string) *model.FileInfo,
+	readDir func(path string) []*model.FileInfo,
+	handle func(file *model.FileInfo)) {
 
 	fileInfo := getFileInfo(path)
 	if fileInfo == nil {
 		fmt.Println("can't get file info:", path)
 		return
 	}
-	if !fileInfo.IsDir() {
+	if !fileInfo.IsDir {
 		handle(fileInfo)
 		return
 	}

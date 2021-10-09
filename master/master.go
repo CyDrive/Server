@@ -63,7 +63,7 @@ func (m *Master) Start() {
 	router.GET("/list/*path", ListHandle)
 
 	router.GET("/file_info/*path", GetFileInfoHandle)
-	router.PUT("/file_info/*path", PutFileInfoHandle)
+	// router.PUT("/file_info/*path", PutFileInfoHandle)
 
 	router.GET("/file/*path", DownloadHandle)
 	router.PUT("/file/*path", UploadHandle)

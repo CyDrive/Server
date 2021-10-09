@@ -1,8 +1,6 @@
 package master
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -55,20 +53,5 @@ func LoginAuth(router *gin.Engine) gin.HandlerFunc {
 
 		// Store user struct into context
 		c.Set("user", user)
-	}
-}
-
-func SetFileInfo() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		fileinfoStr := c.Query("fileinfo")
-		if len(fileinfoStr) > 0 {
-			fileinfo := model.FileInfo{}
-			err := json.Unmarshal([]byte(fileinfoStr), &fileinfo)
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			c.Set("fileinfo", fileinfo)
-		}
 	}
 }

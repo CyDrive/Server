@@ -18,19 +18,21 @@ var (
 )
 
 func init() {
-	logFile, err := os.OpenFile("log", os.O_CREATE|os.O_APPEND, 0777)
+	logFile, err := os.OpenFile("master.log", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
 	if err != nil {
 		panic(err)
 	}
 	log.SetOutput(logFile)
 	log.SetReportCaller(true)
 
+	conf.AccountStoreType = "mem"
+	conf.AccountStorePath = "user_data/user.json"
 }
 
 func main() {
 	var accountStore store.AccountStore = nil
-	if conf.UserStoreType == "mem" {
-		accountStore = store.NewMemStore("user_data/user.json")
+	if conf.AccountStoreType == "mem" {
+		accountStore = store.NewMemStore(conf.AccountStorePath)
 	}
 	master := NewMaster(conf, env.NewLocalEnv(), accountStore)
 	master.Start()

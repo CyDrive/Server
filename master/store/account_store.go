@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/CyDrive/config"
@@ -13,14 +14,6 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 )
-
-var (
-	accountStore AccountStore = NewMemStore("user_data/user.json")
-)
-
-func GetAccountStore() AccountStore {
-	return accountStore
-}
 
 type AccountStore interface {
 	GetUserByName(name string) *model.User
@@ -35,7 +28,12 @@ type MemStore struct {
 func NewMemStore(userJson string) *MemStore {
 	store := MemStore{userNameMap: make(map[string]*model.User)}
 
-	data, _ := ioutil.ReadFile(userJson)
+	data, err := ioutil.ReadFile(userJson)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			panic(err)
+		}
+	}
 
 	userArray := make([]*model.User, 1)
 	json.Unmarshal(data, &userArray)

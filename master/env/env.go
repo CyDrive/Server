@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/CyDrive/model"
+	"github.com/CyDrive/utils"
 )
 
 type FileHandle interface {
@@ -37,7 +38,7 @@ func (l *LocalFile) Stat() (model.FileInfo, error) {
 		return model.FileInfo{}, err
 	}
 
-	return model.NewFileInfo(inner, l.path), nil
+	return utils.NewFileInfo(inner, l.path), nil
 }
 
 func (l *LocalFile) Seek(offset int64, whence int) (int64, error) {
@@ -106,7 +107,7 @@ func (l *LocalEnv) ReadDir(dirname string) ([]model.FileInfo, error) {
 	fileInfoList := []model.FileInfo{}
 	for _, info := range innerList {
 		fileInfoList = append(fileInfoList,
-			model.NewFileInfo(info, filepath.Join(dirname, info.Name())))
+			utils.NewFileInfo(info, filepath.Join(dirname, info.Name())))
 	}
 
 	return fileInfoList, nil
@@ -122,5 +123,5 @@ func (l *LocalEnv) Stat(name string) (model.FileInfo, error) {
 		return model.FileInfo{}, err
 	}
 
-	return model.NewFileInfo(inner, name), nil
+	return utils.NewFileInfo(inner, name), nil
 }

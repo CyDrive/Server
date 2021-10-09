@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/CyDrive/Server/storage/rpc";
+option go_package = "github.com/CyDrive/rpc";
 
 package rpc;
 

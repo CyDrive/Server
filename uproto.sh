@@ -1,0 +1,2 @@
+protoc --proto_path=rpc --go_out=rpc --go_opt=paths=source_relative --go-grpc_out=rpc --go-grpc_opt=paths=source_relative manage.proto
+protoc --proto_path=rpc --go_out=model --go_opt=paths=source_relative --csharp_out=model response.proto storage.proto

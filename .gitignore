@@ -11,3 +11,4 @@ main
 log
 master/bin/*
 !master/bin/main.go
+model/*.cs

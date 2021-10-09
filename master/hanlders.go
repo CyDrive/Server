@@ -5,19 +5,18 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	. "github.com/CyDrive/consts"
-	"github.com/CyDrive/master/store"
 	"github.com/CyDrive/model"
 	"github.com/CyDrive/utils"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
 
+// Account handlers
 func LoginHandle(c *gin.Context) {
 	username, ok := c.GetPostForm("username")
 	if !ok {
@@ -39,8 +38,7 @@ func LoginHandle(c *gin.Context) {
 		return
 	}
 
-	accountStore := store.GetAccountStore()
-	user := accountStore.GetUserByName(username)
+	user := GetAccountStore().GetUserByName(username)
 	if user == nil {
 		c.JSON(http.StatusOK, model.Resp{
 			Status:  StatusAuthError,
@@ -153,74 +151,65 @@ func GetFileInfoHandle(c *gin.Context) {
 	})
 }
 
-func PutFileInfoHandle(c *gin.Context) {
-	userI, _ := c.Get("user")
-	user := userI.(*model.User)
+// func PutFileInfoHandle(c *gin.Context) {
+// 	userI, _ := c.Get("user")
+// 	user := userI.(*model.User)
 
-	filePath := c.Param("path")
-	filePath = strings.Trim(filePath, "/")
-	absFilePath := filepath.Join(user.RootDir, filePath)
+// 	filePath := c.Param("path")
+// 	filePath = strings.Trim(filePath, "/")
+// 	absFilePath := filepath.Join(user.RootDir, filePath)
 
-	_, err := GetEnv().Stat(absFilePath)
-	if err != nil {
-		c.JSON(http.StatusOK, model.Resp{
-			Status:  StatusIoError,
-			Message: err.Error(),
-			Data:    nil,
-		})
-		return
-	}
+// 	_, err := GetEnv().Stat(absFilePath)
+// 	if err != nil {
+// 		c.JSON(http.StatusOK, model.Resp{
+// 			Status:  StatusIoError,
+// 			Message: err.Error(),
+// 			Data:    nil,
+// 		})
+// 		return
+// 	}
 
-	len := c.Request.ContentLength
-	fileInfoJson := make([]byte, len)
-	c.Request.Body.Read(fileInfoJson)
+// 	len := c.Request.ContentLength
+// 	fileInfoJson := make([]byte, len)
+// 	c.Request.Body.Read(fileInfoJson)
 
-	fileInfo := model.FileInfo{}
-	if err := json.Unmarshal(fileInfoJson, &fileInfo); err != nil {
-		c.JSON(http.StatusOK, model.Resp{
-			Status:  StatusInternalError,
-			Message: "error when parsing file info",
-			Data:    nil,
-		})
-		return
-	}
+// 	fileInfo := model.FileInfo{}
+// 	if err := json.Unmarshal(fileInfoJson, &fileInfo); err != nil {
+// 		c.JSON(http.StatusOK, model.Resp{
+// 			Status:  StatusInternalError,
+// 			Message: "error when parsing file info",
+// 			Data:    nil,
+// 		})
+// 		return
+// 	}
 
-	openFile, err := GetEnv().OpenFile(absFilePath, os.O_RDWR, os.FileMode(fileInfo.FileMode))
-	if err != nil {
-		c.JSON(http.StatusOK, model.Resp{
-			Status:  StatusIoError,
-			Message: err.Error(),
-			Data:    nil,
-		})
-		return
-	}
-	defer openFile.Close()
+// 	openFile, err := GetEnv().OpenFile(absFilePath, os.O_RDWR, os.FileMode(fileInfo.FileMode))
+// 	if err != nil {
+// 		c.JSON(http.StatusOK, model.Resp{
+// 			Status:  StatusIoError,
+// 			Message: err.Error(),
+// 			Data:    nil,
+// 		})
+// 		return
+// 	}
+// 	defer openFile.Close()
 
-	if err = openFile.Chmod(os.FileMode(fileInfo.FileMode)); err != nil {
-		c.JSON(http.StatusOK, model.Resp{
-			Status:  StatusInternalError,
-			Message: err.Error(),
-			Data:    nil,
-		})
-		return
-	}
+// 	if err = GetEnv().Chtimes(absFilePath, time.Now(), time.Unix(fileInfo.ModifyTime, 0)); err != nil {
+// 		c.JSON(http.StatusOK, model.Resp{
+// 			Status:  StatusInternalError,
+// 			Message: err.Error(),
+// 			Data:    nil,
+// 		})
 
-	if err = GetEnv().Chtimes(absFilePath, time.Now(), time.Unix(fileInfo.ModifyTime, 0)); err != nil {
-		c.JSON(http.StatusOK, model.Resp{
-			Status:  StatusInternalError,
-			Message: err.Error(),
-			Data:    nil,
-		})
+// 		return
+// 	}
 
-		return
-	}
-
-	c.JSON(http.StatusOK, model.Resp{
-		Status:  StatusOk,
-		Message: "put file info done",
-		Data:    nil,
-	})
-}
+// 	c.JSON(http.StatusOK, model.Resp{
+// 		Status:  StatusOk,
+// 		Message: "put file info done",
+// 		Data:    nil,
+// 	})
+// }
 
 func DownloadHandle(c *gin.Context) {
 	userI, _ := c.Get("user")
@@ -233,7 +222,7 @@ func DownloadHandle(c *gin.Context) {
 	filePath = strings.Join([]string{user.RootDir, filePath}, "/")
 	fileInfo, _ := GetEnv().Stat(filePath)
 
-	if fileInfo.IsDir() {
+	if fileInfo.IsDir {
 		c.JSON(http.StatusOK, model.Resp{
 			Status:  StatusIoError,
 			Message: "not a file",
@@ -242,7 +231,7 @@ func DownloadHandle(c *gin.Context) {
 	}
 
 	// range
-	var begin, _ int64 = 0, fileInfo.Size() - 1
+	var begin, _ int64 = 0, fileInfo.Size - 1
 	bytesRange := c.GetHeader("Range")
 	if len(bytesRange) > 0 {
 		begin, _ = utils.UnpackRange(bytesRange)
@@ -304,7 +293,7 @@ func UploadHandle(c *gin.Context) {
 	}
 
 	// Check file size
-	if fileInfo.Size_ > FileSizeLimit {
+	if fileInfo.Size > FileSizeLimit {
 		c.JSON(http.StatusOK, model.Resp{
 			Status:  StatusFileTooLargeError,
 			Message: "file is too large",
@@ -313,16 +302,16 @@ func UploadHandle(c *gin.Context) {
 	}
 
 	// Check user storage capability
-	if fileInfo.Size_ > user.Cap {
+	if fileInfo.Size > user.Cap {
 		c.JSON(http.StatusOK, model.Resp{
 			Status: StatusFileTooLargeError,
 			Message: fmt.Sprintf("no enough capability, free storage: %vMiB, and size of the file: %vMiB",
-				(user.Cap-user.Usage)>>20, fileInfo.Size_>>20), // Convert Byte to MB
+				(user.Cap-user.Usage)>>20, fileInfo.Size>>20), // Convert Byte to MB
 		})
 		return
 	}
 
-	taskId := ftm.AddTask(&fileInfo, user, UploadTaskType, fileInfo.Size_)
+	taskId := ftm.AddTask(&fileInfo, user, UploadTaskType, fileInfo.Size)
 
 	c.JSON(http.StatusOK, model.Resp{
 		Status:  StatusOk,

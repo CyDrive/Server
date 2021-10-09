@@ -3,21 +3,24 @@ package config
 import "fmt"
 
 type Config struct {
-	// "mysql" or "mem"
-	UserStoreType string
+	// "rdb" or "mem"
+	AccountStoreType string
 
 	// mysql host or json filepath
-	Path     string
+	AccountStorePath string
 
+	// only for rdb
 	User     string
 	Password string
 	Database string
+
+	EnvType int
 }
 
 func (config Config) PackDSN() string {
 	return fmt.Sprintf("%s:%s@(%s)/%s?charset=utf8&parseTime=True&loc=Local",
 		config.User,
 		config.Password,
-		config.Path,
+		config.AccountStorePath,
 		config.Database)
 }
