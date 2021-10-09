@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option go_package = "github.com/CyDrive/consts";
+
+package consts;
+
+enum StatusCode {
+    Ok = 0;
+    AuthError = 1;
+    NeedParameters = 2;
+    FileTooLarge = 4;
+    IoError = 8;
+    InternalError = 16;
+    SessionError = 32;
+}

@@ -53,6 +53,15 @@ func UnpackRange(rangeStr string) (int64, int64) {
 	return begin, end
 }
 
+func PackSafeUser(user *model.User) *model.SafeUser {
+	return &model.SafeUser{
+		Id:       user.Id,
+		UserName: user.UserName,
+		Usage:    user.Usage,
+		Cap:      user.Cap,
+	}
+}
+
 func NewFileInfo(fileInfo os.FileInfo, path string) model.FileInfo {
 	return model.FileInfo{
 		ModifyTime:   fileInfo.ModTime().Unix(),
@@ -95,12 +104,12 @@ func ShouldCompressed(fileInfo os.FileInfo) bool {
 	return fileInfo.Size() > consts.CompressBaseline
 }
 
-func GetResp(resp *http.Response) *model.Resp {
+func GetResp(resp *http.Response) *model.Response {
 	bytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil
 	}
-	res := model.Resp{}
+	res := model.Response{}
 	if err = json.Unmarshal(bytes, &res); err != nil {
 		return nil
 	}

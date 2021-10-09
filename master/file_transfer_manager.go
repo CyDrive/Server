@@ -143,7 +143,7 @@ func (ftm *FileTransferManager) DownloadHandle(task *Task) {
 }
 
 func (ftm *FileTransferManager) UploadHandle(task *Task) {
-	filePath := filepath.Join(task.User.RootDir, task.FileInfo.FilePath)
+	filePath := filepath.Join(task.User.DataDir, task.FileInfo.FilePath)
 
 	file, err := GetEnv().OpenFile(filePath, os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {

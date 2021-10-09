@@ -39,9 +39,9 @@ func NewMemStore(userJson string) *MemStore {
 	json.Unmarshal(data, &userArray)
 	for _, user := range userArray {
 		// Get the storage usage
-		user.Usage, _ = utils.DirSize(user.RootDir)
+		user.Usage, _ = utils.DirSize(user.DataDir)
 
-		store.userNameMap[user.Username] = user
+		store.userNameMap[user.UserName] = user
 	}
 
 	return &store
@@ -69,6 +69,6 @@ func (store *RdbStore) GetUserByName(name string) *model.User {
 		return nil
 	}
 
-	user.RootDir = filepath.Join(UserDataDir, fmt.Sprint(user.Id))
+	user.DataDir = filepath.Join(UserDataDir, fmt.Sprint(user.Id))
 	return &user
 }
