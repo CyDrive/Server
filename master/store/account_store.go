@@ -32,20 +32,17 @@ type MemStore struct {
 	accountEmailMap map[string]*model.Account
 	rwMutex         *sync.RWMutex // guard for accountEmailMap
 
-	accountJsonPath string
-	updatedFlag     int32
+	updatedFlag int32
 }
 
-func NewMemStore(accountJsonPath string) *MemStore {
+func NewMemStore() *MemStore {
 	store := MemStore{
 		accountEmailMap: make(map[string]*model.Account),
 		rwMutex:         &sync.RWMutex{},
-
-		accountJsonPath: accountJsonPath,
 		updatedFlag:     0,
 	}
 
-	data, err := ioutil.ReadFile(accountJsonPath)
+	data, err := ioutil.ReadFile(consts.MemAccountStoreJsonPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			panic(err)
@@ -152,7 +149,7 @@ func (store *MemStore) save() {
 		return
 	}
 
-	err = ioutil.WriteFile(store.accountJsonPath, accountListBytes, 0666)
+	err = ioutil.WriteFile(consts.MemAccountStoreJsonPath, accountListBytes, 0666)
 	if err != nil {
 		log.Error(err)
 		return

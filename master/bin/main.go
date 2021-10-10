@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/CyDrive/config"
+	"github.com/CyDrive/consts"
 	. "github.com/CyDrive/master"
 	"github.com/CyDrive/master/env"
 	"github.com/CyDrive/master/store"
@@ -26,13 +27,13 @@ func init() {
 	log.SetReportCaller(true)
 
 	conf.AccountStoreType = "mem"
-	conf.AccountStorePath = "user_data/user.json"
+	conf.AccountStorePath = consts.MemAccountStoreJsonPath
 }
 
 func main() {
 	var accountStore store.AccountStore = nil
 	if conf.AccountStoreType == "mem" {
-		accountStore = store.NewMemStore(conf.AccountStorePath)
+		accountStore = store.NewMemStore()
 	}
 
 	master := NewMaster(conf, env.NewLocalEnv(), accountStore)

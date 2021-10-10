@@ -8,6 +8,8 @@ const (
 	FtmListenPort     = 6456
 	FtmListenPortStr  = ":6456"
 	UserDataDir       = "user_data"
+
+	MemAccountStoreJsonPath = "accounts.json"
 )
 
 const (
