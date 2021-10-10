@@ -167,10 +167,10 @@ func NewRdbStore(config config.Config) *RdbStore {
 	return &store
 }
 
-func (store *RdbStore) GetAccountByEmail(name string) *model.Account {
+func (store *RdbStore) GetAccountByEmail(email string) *model.Account {
 	var user model.Account
 
-	if store.db.First(user, "username = ?", name).RecordNotFound() {
+	if store.db.First(user, "email = ?", email).RecordNotFound() {
 		return nil
 	}
 
