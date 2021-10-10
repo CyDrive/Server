@@ -133,5 +133,5 @@ var Manage_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "manage.proto",
+	Metadata: "rpc/manage.proto",
 }

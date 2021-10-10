@@ -1,32 +1,32 @@
 package store
 
 import (
-	"github.com/yah01/CyDrive/model"
+	"github.com/CyDrive/model"
 	"time"
 )
 
 type MessageStore interface {
-	GetMessageByTime(userId int64, count int64, time time.Time) []model.Message
-	PutMessage(message model.Message)
+	GetMessageByTime(userId int64, count int64, time time.Time) []*model.Message
+	PutMessage(message *model.Message)
 }
 
 type MessageMemStore struct {
-	messageMap map[int64][]model.Message
+	messageMap map[int64][]*model.Message
 }
 
-func (store MessageMemStore) GetMessageByTime(userId int64, count int64, time time.Time) []model.Message {
+func (store MessageMemStore) GetMessageByTime(userId int64, count int64, time time.Time) []*model.Message {
 	messageList, ok := store.messageMap[userId]
 	if ok == false {
-		return []model.Message{}
+		return []*model.Message{}
 	}
 	left := 0
 	right := len(messageList) - 1
-	if messageList[left].SendTime.After(time) {
-		return []model.Message{}
+	if messageList[left].SendedAt.AsTime().After(time) {
+		return []*model.Message{}
 	}
 	for left < right {
 		mid := (left + right) / 2
-		if time.After(messageList[mid+1].SendTime) {
+		if time.After(messageList[mid+1].SendedAt.AsTime()) {
 			left = mid + 1
 		} else {
 			right = mid
@@ -39,13 +39,13 @@ func (store MessageMemStore) GetMessageByTime(userId int64, count int64, time ti
 	}
 }
 
-func (store MessageMemStore) PutMessage(message model.Message) {
-	userId := message.UserId
-	_, ok := store.messageMap[userId]
+func (store MessageMemStore) PutMessage(message *model.Message) {
+	receiverId := message.Receiver
+	_, ok := store.messageMap[receiverId]
 	if ok == false {
-		store.messageMap[userId] = []model.Message{}
+		store.messageMap[receiverId] = []*model.Message{}
 	}
-	store.messageMap[userId] = append(store.messageMap[userId], message)
+	store.messageMap[receiverId] = append(store.messageMap[receiverId], message)
 }
 
 var messageStore MessageStore = MessageMemStore{}

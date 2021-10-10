@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+option go_package = "github.com/CyDrive/consts";
+
+package consts;
+
+enum MessageType {
+    Text = 0;
+    Image = 1;
+    Audio = 2;
+    Video = 3;
+    File = 4;
+    Notification = 5;
+}

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option go_package = "github.com/CyDrive/model";
+package model;
+
+import "google/protobuf/timestamp.proto";
+import "consts/message_type.proto";
+
+message Message {
+    int64 id = 1;
+    int64 sender = 2;
+    int64 receiver = 3;
+    consts.MessageType type = 4;
+    string content = 5;
+    google.protobuf.Timestamp sended_at = 6;
+    int32 Expire = 7;
+}
