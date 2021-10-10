@@ -31,7 +31,7 @@ type Task struct {
 	// filled when the server deliver task id
 	Id        int32
 	FileInfo  *model.FileInfo
-	User      *model.Account
+	Account   *model.Account
 	Expire    time.Duration
 	StartAt   time.Time
 	Type      TaskType
@@ -91,12 +91,12 @@ func (ftm *FileTransferManager) Listen() {
 	}
 }
 
-func (ftm *FileTransferManager) AddTask(fileInfo *model.FileInfo, user *model.Account, taskType TaskType, doneBytes int64) int32 {
+func (ftm *FileTransferManager) AddTask(fileInfo *model.FileInfo, account *model.Account, taskType TaskType, doneBytes int64) int32 {
 	taskId := ftm.idGen.NextAndRef()
 	ftm.taskMap.Store(taskId, &Task{
 		Id:        taskId,
 		FileInfo:  fileInfo,
-		User:      user,
+		Account:   account,
 		Expire:    24 * time.Hour,
 		StartAt:   time.Now(),
 		Type:      taskType,
@@ -110,7 +110,7 @@ func (ftm *FileTransferManager) DownloadHandle(task *Task) {
 	file, err := GetEnv().Open(task.FileInfo.FilePath)
 	if err != nil {
 		log.Errorf("open file %+v error: %+v", task.FileInfo.FilePath, err)
-		// todo: notify user by message channel
+		// todo: notify account by message channel
 		return
 	}
 	defer file.Close()
@@ -143,12 +143,12 @@ func (ftm *FileTransferManager) DownloadHandle(task *Task) {
 }
 
 func (ftm *FileTransferManager) UploadHandle(task *Task) {
-	filePath := filepath.Join(task.User.DataDir, task.FileInfo.FilePath)
+	filePath := filepath.Join(task.Account.DataDir, task.FileInfo.FilePath)
 
 	file, err := GetEnv().OpenFile(filePath, os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Errorf("open file %+v error: %+v", filePath, err)
-		// todo: notify user by message channel
+		// todo: notify account by message channel
 		return
 	}
 	defer file.Close()

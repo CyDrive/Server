@@ -18,10 +18,10 @@ func LoginAuth(router *gin.Engine) gin.HandlerFunc {
 			return
 		}
 
-		userSession := sessions.DefaultMany(c, "user")
-		user := userSession.Get("userStruct")
+		userSession := sessions.DefaultMany(c, "account")
+		account := userSession.Get("userStruct")
 		expire := userSession.Get("expire")
-		if user == nil || expire == nil {
+		if account == nil || expire == nil {
 			c.AbortWithStatusJSON(http.StatusOK, model.Response{
 				StatusCode: consts.StatusCode_AuthError,
 				Message:    "not login",
@@ -48,7 +48,7 @@ func LoginAuth(router *gin.Engine) gin.HandlerFunc {
 			return
 		}
 
-		// Store user struct into context
-		c.Set("user", user)
+		// Store account struct into context
+		c.Set("account", account)
 	}
 }

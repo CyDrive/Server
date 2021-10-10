@@ -23,7 +23,7 @@ func LoginHandle(c *gin.Context) {
 	if !ok {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_AuthError,
-			Message:    "no user name",
+			Message:    "no account name",
 		})
 		return
 	}
@@ -37,25 +37,25 @@ func LoginHandle(c *gin.Context) {
 		return
 	}
 
-	user, err := GetAccountStore().GetAccountByEmail(email)
+	account, err := GetAccountStore().GetAccountByEmail(email)
 	if err != nil {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_AuthError,
-			Message:    "no such user",
+			Message:    "no such account",
 		})
 		return
 	}
-	if utils.PasswordHash(user.Password) != password {
+	if utils.PasswordHash(account.Password) != password {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_AuthError,
-			Message:    "user name or password not correct",
+			Message:    "account name or password not correct",
 		})
 		return
 	}
 
-	userSession := sessions.DefaultMany(c, "user")
+	userSession := sessions.DefaultMany(c, "account")
 
-	userSession.Set("userStruct", &user)
+	userSession.Set("userStruct", &account)
 	userSession.Set("expire", time.Now().Add(time.Hour*12))
 	err = userSession.Save()
 	if err != nil {
@@ -66,7 +66,7 @@ func LoginHandle(c *gin.Context) {
 		return
 	}
 
-	safeUser := utils.PackSafeAccount(user)
+	safeUser := utils.PackSafeAccount(account)
 	userBytes, err := json.Marshal(safeUser)
 	if err != nil {
 		c.JSON(http.StatusOK, model.Response{
@@ -84,18 +84,18 @@ func LoginHandle(c *gin.Context) {
 }
 
 func ListHandle(c *gin.Context) {
-	userI, _ := c.Get("user")
-	user := userI.(*model.Account)
+	userI, _ := c.Get("account")
+	account := userI.(*model.Account)
 
 	path := c.Param("path")
 
 	path = strings.Trim(path, "/")
-	absPath := strings.Join([]string{user.DataDir, path}, "/")
+	absPath := strings.Join([]string{account.DataDir, path}, "/")
 
 	fileList, err := GetEnv().ReadDir(absPath)
 	for i := range fileList {
 		fileList[i].FilePath = strings.ReplaceAll(fileList[i].FilePath, "\\", "/")
-		fileList[i].FilePath = strings.TrimPrefix(fileList[i].FilePath, user.DataDir)
+		fileList[i].FilePath = strings.TrimPrefix(fileList[i].FilePath, account.DataDir)
 	}
 	if err != nil {
 		c.JSON(http.StatusOK, model.Response{
@@ -121,12 +121,12 @@ func ListHandle(c *gin.Context) {
 }
 
 func GetFileInfoHandle(c *gin.Context) {
-	userI, _ := c.Get("user")
-	user := userI.(*model.Account)
+	userI, _ := c.Get("account")
+	account := userI.(*model.Account)
 
 	filePath := c.Param("path")
 	filePath = strings.Trim(filePath, "/")
-	absFilePath := filepath.Join(user.DataDir, filePath)
+	absFilePath := filepath.Join(account.DataDir, filePath)
 
 	fileInfo, err := GetEnv().Stat(absFilePath)
 	if err != nil {
@@ -154,12 +154,12 @@ func GetFileInfoHandle(c *gin.Context) {
 }
 
 // func PutFileInfoHandle(c *gin.Context) {
-// 	userI, _ := c.Get("user")
-// 	user := userI.(*model.User)
+// 	userI, _ := c.Get("account")
+// 	account := userI.(*model.User)
 
 // 	filePath := c.Param("path")
 // 	filePath = strings.Trim(filePath, "/")
-// 	absFilePath := filepath.Join(user.DataDir, filePath)
+// 	absFilePath := filepath.Join(account.DataDir, filePath)
 
 // 	_, err := GetEnv().Stat(absFilePath)
 // 	if err != nil {
@@ -214,14 +214,14 @@ func GetFileInfoHandle(c *gin.Context) {
 // }
 
 func DownloadHandle(c *gin.Context) {
-	userI, _ := c.Get("user")
-	user := userI.(*model.Account)
+	userI, _ := c.Get("account")
+	account := userI.(*model.Account)
 
 	// relative path
 	filePath := c.Param("path")
 
 	// absolute filepath
-	filePath = strings.Join([]string{user.DataDir, filePath}, "/")
+	filePath = strings.Join([]string{account.DataDir, filePath}, "/")
 	fileInfo, _ := GetEnv().Stat(filePath)
 
 	if fileInfo.IsDir {
@@ -239,10 +239,10 @@ func DownloadHandle(c *gin.Context) {
 		begin, _ = utils.UnpackRange(bytesRange)
 	}
 
-	taskId := GetFileTransferManager().AddTask(&fileInfo, user, DownloadTaskType, begin)
+	taskId := GetFileTransferManager().AddTask(&fileInfo, account, DownloadTaskType, begin)
 
 	uFileInfo := fileInfo
-	uFileInfo.FilePath, _ = filepath.Rel(user.DataDir, uFileInfo.FilePath)
+	uFileInfo.FilePath, _ = filepath.Rel(account.DataDir, uFileInfo.FilePath)
 	uFileInfo.FilePath = strings.ReplaceAll(uFileInfo.FilePath, "\\", "/")
 
 	resp := model.DownloadResponse{
@@ -267,12 +267,12 @@ func DownloadHandle(c *gin.Context) {
 }
 
 func UploadHandle(c *gin.Context) {
-	userI, _ := c.Get("user")
-	user := userI.(*model.Account)
+	userI, _ := c.Get("account")
+	account := userI.(*model.Account)
 
 	filePath := c.Param("path")
 
-	filePath = strings.Join([]string{user.DataDir, filePath}, "/")
+	filePath = strings.Join([]string{account.DataDir, filePath}, "/")
 	fileDir := filepath.Dir(filePath)
 	if err := GetEnv().MkdirAll(fileDir, 0666); err != nil {
 		c.JSON(http.StatusOK, model.Response{
@@ -311,12 +311,12 @@ func UploadHandle(c *gin.Context) {
 		return
 	}
 
-	// Check user storage capability
-	if fileInfo.Size > user.Cap {
+	// Check account storage capability
+	if fileInfo.Size > account.Cap {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_FileTooLarge,
 			Message: fmt.Sprintf("no enough capability, free storage: %vMiB, and size of the file: %vMiB",
-				(user.Cap-user.Usage)>>20, fileInfo.Size>>20), // Convert Byte to MB
+				(account.Cap-account.Usage)>>20, fileInfo.Size>>20), // Convert Byte to MB
 		})
 		return
 	}
@@ -330,7 +330,7 @@ func UploadHandle(c *gin.Context) {
 		return
 	}
 
-	taskId := ftm.AddTask(fileInfo, user, UploadTaskType, fileInfo.Size)
+	taskId := ftm.AddTask(fileInfo, account, UploadTaskType, fileInfo.Size)
 
 	resp := model.UploadResponse{
 		NodeAddr: config.IpAddr,

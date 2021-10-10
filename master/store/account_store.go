@@ -51,11 +51,11 @@ func NewMemStore() *MemStore {
 
 	accountArray := make([]*model.Account, 1)
 	json.Unmarshal(data, &accountArray)
-	for _, user := range accountArray {
+	for _, account := range accountArray {
 		// Get the storage usage
-		user.Usage, _ = utils.DirSize(user.DataDir)
+		account.Usage, _ = utils.DirSize(account.DataDir)
 
-		store.accountEmailMap[user.UserName] = user
+		store.accountEmailMap[account.UserName] = account
 	}
 
 	return &store
@@ -168,12 +168,12 @@ func NewRdbStore(config config.Config) *RdbStore {
 }
 
 func (store *RdbStore) GetAccountByEmail(email string) *model.Account {
-	var user model.Account
+	var account model.Account
 
-	if store.db.First(user, "email = ?", email).RecordNotFound() {
+	if store.db.First(account, "email = ?", email).RecordNotFound() {
 		return nil
 	}
 
-	user.DataDir = filepath.Join(consts.UserDataDir, fmt.Sprint(user.Id))
-	return &user
+	account.DataDir = filepath.Join(consts.UserDataDir, fmt.Sprint(account.Id))
+	return &account
 }

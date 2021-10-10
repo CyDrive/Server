@@ -27,7 +27,7 @@ func init() {
 	log.SetReportCaller(true)
 
 	conf.AccountStoreType = "mem"
-	conf.AccountStorePath = consts.MemAccountStoreJsonPath
+	conf.DatabaseAddr = consts.MemAccountStoreJsonPath
 }
 
 func main() {

@@ -55,7 +55,7 @@ func (m *Master) Start() {
 	// HTTP services
 	router := gin.Default()
 	memStore := memstore.NewStore([]byte("ProjectMili"))
-	router.Use(sessions.SessionsMany([]string{"user"}, memStore))
+	router.Use(sessions.SessionsMany([]string{"account"}, memStore))
 	router.Use(LoginAuth(router))
 	// router.Use(SetFileInfo())
 
