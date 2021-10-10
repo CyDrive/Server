@@ -11,7 +11,6 @@ import (
 
 	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
-	. "github.com/CyDrive/consts"
 	"github.com/CyDrive/model"
 	"github.com/CyDrive/utils"
 	"github.com/gin-contrib/sessions"
@@ -20,7 +19,7 @@ import (
 
 // Account handlers
 func LoginHandle(c *gin.Context) {
-	username, ok := c.GetPostForm("username")
+	email, ok := c.GetPostForm("email")
 	if !ok {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_AuthError,
@@ -38,8 +37,8 @@ func LoginHandle(c *gin.Context) {
 		return
 	}
 
-	user := GetAccountStore().GetUserByName(username)
-	if user == nil {
+	user, err := GetAccountStore().GetAccountByEmail(email)
+	if err != nil {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_AuthError,
 			Message:    "no such user",
@@ -58,7 +57,7 @@ func LoginHandle(c *gin.Context) {
 
 	userSession.Set("userStruct", &user)
 	userSession.Set("expire", time.Now().Add(time.Hour*12))
-	err := userSession.Save()
+	err = userSession.Save()
 	if err != nil {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_InternalError,
@@ -67,7 +66,7 @@ func LoginHandle(c *gin.Context) {
 		return
 	}
 
-	safeUser := utils.PackSafeUser(user)
+	safeUser := utils.PackSafeAccount(user)
 	userBytes, err := json.Marshal(safeUser)
 	if err != nil {
 		c.JSON(http.StatusOK, model.Response{
@@ -86,7 +85,7 @@ func LoginHandle(c *gin.Context) {
 
 func ListHandle(c *gin.Context) {
 	userI, _ := c.Get("user")
-	user := userI.(*model.User)
+	user := userI.(*model.Account)
 
 	path := c.Param("path")
 
@@ -123,7 +122,7 @@ func ListHandle(c *gin.Context) {
 
 func GetFileInfoHandle(c *gin.Context) {
 	userI, _ := c.Get("user")
-	user := userI.(*model.User)
+	user := userI.(*model.Account)
 
 	filePath := c.Param("path")
 	filePath = strings.Trim(filePath, "/")
@@ -216,7 +215,7 @@ func GetFileInfoHandle(c *gin.Context) {
 
 func DownloadHandle(c *gin.Context) {
 	userI, _ := c.Get("user")
-	user := userI.(*model.User)
+	user := userI.(*model.Account)
 
 	// relative path
 	filePath := c.Param("path")
@@ -269,7 +268,7 @@ func DownloadHandle(c *gin.Context) {
 
 func UploadHandle(c *gin.Context) {
 	userI, _ := c.Get("user")
-	user := userI.(*model.User)
+	user := userI.(*model.Account)
 
 	filePath := c.Param("path")
 
@@ -304,7 +303,7 @@ func UploadHandle(c *gin.Context) {
 	fileInfo := req.FileInfo
 
 	// Check file size
-	if fileInfo.Size > FileSizeLimit {
+	if fileInfo.Size > consts.FileSizeLimit {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_FileTooLarge,
 			Message:    "file is too large",

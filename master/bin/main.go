@@ -34,6 +34,7 @@ func main() {
 	if conf.AccountStoreType == "mem" {
 		accountStore = store.NewMemStore(conf.AccountStorePath)
 	}
+
 	master := NewMaster(conf, env.NewLocalEnv(), accountStore)
 	master.Start()
 }

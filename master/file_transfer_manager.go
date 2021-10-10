@@ -31,7 +31,7 @@ type Task struct {
 	// filled when the server deliver task id
 	Id        int32
 	FileInfo  *model.FileInfo
-	User      *model.User
+	User      *model.Account
 	Expire    time.Duration
 	StartAt   time.Time
 	Type      TaskType
@@ -91,7 +91,7 @@ func (ftm *FileTransferManager) Listen() {
 	}
 }
 
-func (ftm *FileTransferManager) AddTask(fileInfo *model.FileInfo, user *model.User, taskType TaskType, doneBytes int64) int32 {
+func (ftm *FileTransferManager) AddTask(fileInfo *model.FileInfo, user *model.Account, taskType TaskType, doneBytes int64) int32 {
 	taskId := ftm.idGen.NextAndRef()
 	ftm.taskMap.Store(taskId, &Task{
 		Id:        taskId,

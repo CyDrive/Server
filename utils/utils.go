@@ -53,8 +53,8 @@ func UnpackRange(rangeStr string) (int64, int64) {
 	return begin, end
 }
 
-func PackSafeUser(user *model.User) *model.SafeUser {
-	return &model.SafeUser{
+func PackSafeAccount(user *model.Account) *model.SafeAccount {
+	return &model.SafeAccount{
 		Id:       user.Id,
 		UserName: user.UserName,
 		Usage:    user.Usage,
