@@ -5,6 +5,7 @@ option go_package = "github.com/CyDrive/model";
 package model;
 
 import "google/protobuf/timestamp.proto";
+import "options/gorm.proto";
 
 message SafeAccount {
     int64 id = 1;
@@ -15,8 +16,9 @@ message SafeAccount {
 }
 
 message Account {
+    option (gorm.opts).ormable = true;
     // Safe part
-    int64 id = 1;   
+    int64 id = 1 [(gorm.field).tag = {primary_key: true}];
     string email = 2;
     string name = 3;
     int64 usage = 4;
