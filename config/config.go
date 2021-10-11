@@ -8,15 +8,15 @@ var (
 
 type Config struct {
 	// "rdb" or "mem"
-	AccountStoreType string
+	AccountStoreType string `yaml:"account_store_type"`
 
 	// only for rdb
-	DatabaseAddr     string
-	DatabaseName     string
-	DatabaseUser     string
-	DatabasePassword string
+	DatabaseAddr     string `yaml:"database_addr,omitempty"`
+	DatabaseName     string `yaml:"database_name,omitempty"`
+	DatabaseUser     string `yaml:"database_user,omitempty"`
+	DatabasePassword string `yaml:"database_password,omitempty"`
 
-	EnvType int
+	EnvType string `yaml:"env_type"`
 }
 
 func (config Config) PackDSN() string {

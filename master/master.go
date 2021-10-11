@@ -5,7 +5,7 @@ import (
 
 	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
-	"github.com/CyDrive/master/env"
+	"github.com/CyDrive/master/envs"
 	"github.com/CyDrive/master/store"
 	"github.com/CyDrive/rpc"
 	"github.com/gin-contrib/sessions"
@@ -30,7 +30,7 @@ func GetAccountStore() store.AccountStore {
 	return master.accountStore
 }
 
-func GetEnv() env.Env {
+func GetEnv() envs.Env {
 	return master.env
 }
 
@@ -43,12 +43,31 @@ type Master struct {
 
 	fileTransferManager *FileTransferManager
 
-	env          env.Env
+	env          envs.Env
 	accountStore store.AccountStore
 }
 
-func NewMaster(config config.Config, env env.Env, accountStore store.AccountStore) *Master {
-	return nil
+func NewMaster(config config.Config) *Master {
+	var (
+		env          envs.Env
+		accountStore store.AccountStore
+	)
+
+	if config.EnvType == consts.EnvTypeLocal {
+		env = envs.NewLocalEnv()
+	}
+	if config.AccountStoreType == consts.AccountStoreTypeMem {
+		accountStore = store.NewMemStore()
+	}
+
+	master := Master{
+		nodeManagerServer:   &NodeManagerServer{},
+		fileTransferManager: NewFileTransferManager(),
+		env:                 env,
+		accountStore:        accountStore,
+	}
+
+	return &master
 }
 
 func (m *Master) Start() {
@@ -80,5 +99,5 @@ func (m *Master) Start() {
 	go grpcServer.Serve(listen)
 
 	// Start FileTransferManager
-	go m.fileTransferManager.Listen()
+	m.fileTransferManager.Listen()
 }

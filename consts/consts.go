@@ -1,5 +1,8 @@
 package consts
 
+type AccountStoreType = string
+type EnvType = string
+
 const (
 	HttpListenPort    = 6454
 	HttpListenPortStr = ":6454"
@@ -10,12 +13,18 @@ const (
 	UserDataDir       = "user_data"
 
 	MemAccountStoreJsonPath = "accounts.json"
-)
 
-const (
 	// The size of file must be not greater than 1GB
 	FileSizeLimit int64 = 1 << 30
 
 	// A file with not small than 100MB size should be compressed
 	CompressBaseline int64 = 100 << 20
+
+	AccountStoreTypeMem   AccountStoreType = "mem"
+	AccountStoreTypeMySQL AccountStoreType = "mysql"
+
+	EnvTypeLocal  = "local"
+	EnvTypeRemote = "remote"
+
+	TimeFormat = "2006-01-02 15:04:05"
 )

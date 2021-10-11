@@ -21,4 +21,4 @@ echo "protoc enums..."
 protoc --proto_path=. \
     --go_out=. --go_opt=paths=source_relative \
     --csharp_out=consts \
-    consts/status_code.proto consts/message_type.proto
+    consts/enums.proto

@@ -4,7 +4,7 @@ option go_package = "github.com/CyDrive/model";
 package model;
 
 import "google/protobuf/timestamp.proto";
-import "consts/message_type.proto";
+import "consts/enums.proto";
 import "options/gorm.proto";
 
 message Message {

@@ -1,14 +1,15 @@
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/CyDrive/config"
-	"github.com/CyDrive/consts"
 	. "github.com/CyDrive/master"
-	"github.com/CyDrive/master/env"
-	"github.com/CyDrive/master/store"
+	"github.com/CyDrive/utils"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -19,23 +20,23 @@ var (
 )
 
 func init() {
-	logFile, err := os.OpenFile("master.log", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
+	logFile, err := os.OpenFile(fmt.Sprintf("master: %v.log", utils.GetDateTimeNow()), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
 	if err != nil {
 		panic(err)
 	}
 	log.SetOutput(logFile)
 	log.SetReportCaller(true)
 
-	conf.AccountStoreType = "mem"
-	conf.DatabaseAddr = consts.MemAccountStoreJsonPath
+	configBytes, err := ioutil.ReadFile("master-config.yaml")
+	if err != nil {
+		panic(err)
+	}
+	if err = yaml.Unmarshal(configBytes, &conf); err != nil {
+		panic(err)
+	}
 }
 
 func main() {
-	var accountStore store.AccountStore = nil
-	if conf.AccountStoreType == "mem" {
-		accountStore = store.NewMemStore()
-	}
-
-	master := NewMaster(conf, env.NewLocalEnv(), accountStore)
+	master := NewMaster(conf)
 	master.Start()
 }

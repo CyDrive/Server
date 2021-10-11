@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/CyDrive/consts"
 	"github.com/CyDrive/model"
@@ -60,6 +61,10 @@ func PackSafeAccount(account *model.Account) *model.SafeAccount {
 		Usage:    account.Usage,
 		Cap:      account.Cap,
 	}
+}
+
+func GetDateTimeNow() string {
+	return time.Now().Format(consts.TimeFormat)
 }
 
 func NewFileInfo(fileInfo os.FileInfo, path string) model.FileInfo {
