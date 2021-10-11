@@ -21,3 +21,16 @@ make all
 来进行交叉编译
 
 这会在 master/bin 下生成一个 master_windows.exe，你可以直接在 Windows 系统中运行该程序
+
+# 测试
+目前可以使用 C# SDK 进行测试，在一个机器上运行 master，并用下面的代码来进行注册/登录：
+```csharp
+CyDriveClient client = new CyDriveClient("ipAddr:6454");
+Account account = new Account();
+// ...
+// fill email and password fields
+
+client.RegisterAsync(account);
+client.LoginAsync();
+```
+注意 SDK 提供的接口是异步的，如果你在异步方法中执行他们，使用 await，如果在同步代码中，使用 .Wait() 。
