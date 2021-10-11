@@ -19,13 +19,13 @@ message Account {
     option (gorm.opts).ormable = true;
     // Safe part
     int64 id = 1 [(gorm.field).tag = {primary_key: true}];
-    string email = 2;
-    string name = 3;
-    int64 usage = 4;
-    int64 cap = 5;
+    string email = 2 [(gorm.field).tag = {unique: true, not_null: true}];
+    string name = 3 [(gorm.field).tag = {not_null: true}];
+    int64 usage = 4 [(gorm.field).tag = {default: "0"}];
+    int64 cap = 5 [(gorm.field).tag = {default: "0"}];
 
-    string password = 6;
-    string data_dir = 7;
+    string password = 6 [(gorm.field).tag = {not_null: true}];
+    string data_dir = 7 [(gorm.field).tag = {not_null: true}];
 
     google.protobuf.Timestamp created_at = 8;
     google.protobuf.Timestamp updated_at = 9;

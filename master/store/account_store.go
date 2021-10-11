@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -168,12 +169,13 @@ func NewRdbStore(config config.Config) *RdbStore {
 }
 
 func (store *RdbStore) GetAccountByEmail(email string) *model.Account {
-	var account model.Account
+	var account model.AccountORM
 
-	if store.db.First(account, "email = ?", email).RecordNotFound() {
+	if store.db.First(&account, "email = ?", email).RecordNotFound() {
 		return nil
 	}
 
 	account.DataDir = filepath.Join(consts.UserDataDir, fmt.Sprint(account.Id))
-	return &account
+	realAccount, _ := account.ToPB(context.Background())
+	return &realAccount
 }

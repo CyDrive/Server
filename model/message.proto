@@ -5,9 +5,12 @@ package model;
 
 import "google/protobuf/timestamp.proto";
 import "consts/message_type.proto";
+import "options/gorm.proto";
 
 message Message {
-    int64 id = 1;
+    option (gorm.opts).ormable = true;
+
+    int64 id = 1 [(gorm.field).tag = {primary_key: true}];
     int64 sender = 2;
     int64 receiver = 3;
     consts.MessageType type = 4;
