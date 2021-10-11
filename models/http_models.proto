@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+option go_package = "github.com/CyDrive/modelss";
+
+package models;
+
+import "models/file_info.proto";
+
+message RegisterRequest {
+    // required:
+    string email = 1;
+    string password = 2;
+    
+    // optional:
+    string name = 3;
+    int64 cap = 4;
+}
+
+message LoginRequest {
+    string email = 1;
+    string password = 2;
+}
+
+message DownloadResponse {
+    string node_addr = 1;
+    int32 task_id = 2;
+    models.FileInfo file_info = 3;
+}
+
+message UploadRequest {
+    models.FileInfo file_info = 1;
+}
+
+message UploadResponse {
+    string node_addr = 1;
+    int32 task_id = 2;
+}
+

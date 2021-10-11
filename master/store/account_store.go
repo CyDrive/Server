@@ -12,7 +12,7 @@ import (
 
 	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
-	"github.com/CyDrive/model"
+	"github.com/CyDrive/models"
 	"github.com/CyDrive/utils"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
@@ -20,8 +20,8 @@ import (
 )
 
 type AccountStore interface {
-	AddAccount(account *model.Account) error
-	GetAccountByEmail(email string) (*model.Account, error)
+	AddAccount(account *models.Account) error
+	GetAccountByEmail(email string) (*models.Account, error)
 
 	AddUsage(email string, usage int64) error
 	ExpandCap(email string, newCap int64) error
@@ -31,7 +31,7 @@ type AccountStore interface {
 // load from a json file
 type MemStore struct {
 	idGen           *utils.IdGenerator
-	accountEmailMap map[string]*model.Account
+	accountEmailMap map[string]*models.Account
 	rwMutex         *sync.RWMutex // guard for accountEmailMap
 
 	updatedFlag int32
@@ -40,7 +40,7 @@ type MemStore struct {
 func NewMemStore() *MemStore {
 	store := MemStore{
 		idGen:           utils.NewIdGenerator(),
-		accountEmailMap: make(map[string]*model.Account),
+		accountEmailMap: make(map[string]*models.Account),
 		rwMutex:         &sync.RWMutex{},
 		updatedFlag:     0,
 	}
@@ -52,7 +52,7 @@ func NewMemStore() *MemStore {
 		}
 	}
 
-	accountArray := make([]*model.Account, 1)
+	accountArray := make([]*models.Account, 1)
 	json.Unmarshal(data, &accountArray)
 	for _, account := range accountArray {
 		// Get the storage usage
@@ -68,7 +68,7 @@ func NewMemStore() *MemStore {
 
 // required fields: Email, Password
 // optional fields: Name, Cap
-func (store *MemStore) AddAccount(account *model.Account) error {
+func (store *MemStore) AddAccount(account *models.Account) error {
 	store.rwMutex.RLock()
 	_, ok := store.accountEmailMap[account.Email]
 	if ok {
@@ -87,7 +87,7 @@ func (store *MemStore) AddAccount(account *model.Account) error {
 	return nil
 }
 
-func (store *MemStore) GetAccountByEmail(email string) (*model.Account, error) {
+func (store *MemStore) GetAccountByEmail(email string) (*models.Account, error) {
 	store.rwMutex.RLock()
 	defer store.rwMutex.RUnlock()
 
@@ -147,7 +147,7 @@ func (store *MemStore) persistThread() {
 }
 
 func (store *MemStore) save() {
-	accountList := make([]*model.Account, 0, len(store.accountEmailMap))
+	accountList := make([]*models.Account, 0, len(store.accountEmailMap))
 	for _, account := range store.accountEmailMap {
 		accountList = append(accountList, account)
 	}
@@ -176,8 +176,8 @@ func NewRdbStore(config config.Config) *RdbStore {
 	return &store
 }
 
-func (store *RdbStore) GetAccountByEmail(email string) *model.Account {
-	var account model.AccountORM
+func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
+	var account models.AccountORM
 
 	if store.db.First(&account, "email = ?", email).RecordNotFound() {
 		return nil

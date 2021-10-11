@@ -1,7 +1,7 @@
 syntax = "proto3";
 
-option go_package = "github.com/CyDrive/model";
-package model;
+option go_package = "github.com/CyDrive/modelss";
+package models;
 
 import "google/protobuf/timestamp.proto";
 import "consts/enums.proto";

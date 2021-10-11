@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/CyDrive/consts"
-	"github.com/CyDrive/model"
+	"github.com/CyDrive/models"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
@@ -23,7 +23,7 @@ func LoginAuth(router *gin.Engine) gin.HandlerFunc {
 		account := userSession.Get("userStruct")
 		expire := userSession.Get("expire")
 		if account == nil || expire == nil {
-			c.AbortWithStatusJSON(http.StatusOK, model.Response{
+			c.AbortWithStatusJSON(http.StatusOK, models.Response{
 				StatusCode: consts.StatusCode_AuthError,
 				Message:    "not login",
 			})
@@ -31,7 +31,7 @@ func LoginAuth(router *gin.Engine) gin.HandlerFunc {
 		}
 
 		if !expire.(time.Time).After(time.Now()) {
-			c.AbortWithStatusJSON(http.StatusOK, model.Response{
+			c.AbortWithStatusJSON(http.StatusOK, models.Response{
 				StatusCode: consts.StatusCode_AuthError,
 				Message:    "timeout, login again",
 			})
@@ -42,7 +42,7 @@ func LoginAuth(router *gin.Engine) gin.HandlerFunc {
 		// Flush expire time
 		userSession.Set("expire", time.Now().Add(time.Hour*12))
 		if err := userSession.Save(); err != nil {
-			c.AbortWithStatusJSON(http.StatusOK, model.Response{
+			c.AbortWithStatusJSON(http.StatusOK, models.Response{
 				StatusCode: consts.StatusCode_SessionError,
 				Message:    err.Error(),
 			})

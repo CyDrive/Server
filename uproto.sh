@@ -14,8 +14,8 @@ protoc --proto_path=. \
 echo "protoc models..."
 protoc --proto_path=. -I$proto_dir \
     --go_out=. --go_opt=paths=source_relative --gorm_out="engine=mysql:." --gorm_opt=paths=source_relative \
-    --csharp_out=model \
-    model/storage.proto model/account.proto model/message.proto
+    --csharp_out=models \
+    models/account.proto models/file_info.proto models/http_models.proto models/message.proto
 
 echo "protoc enums..."
 protoc --proto_path=. \

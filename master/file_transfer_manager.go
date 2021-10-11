@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/CyDrive/consts"
-	"github.com/CyDrive/model"
 	"github.com/CyDrive/utils"
+	"github.com/CyDrive/models"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -30,8 +30,8 @@ var (
 type Task struct {
 	// filled when the server deliver task id
 	Id        int32
-	FileInfo  *model.FileInfo
-	Account   *model.Account
+	FileInfo  *models.FileInfo
+	Account   *models.Account
 	Expire    time.Duration
 	StartAt   time.Time
 	Type      TaskType
@@ -91,7 +91,7 @@ func (ftm *FileTransferManager) Listen() {
 	}
 }
 
-func (ftm *FileTransferManager) AddTask(fileInfo *model.FileInfo, account *model.Account, taskType TaskType, doneBytes int64) int32 {
+func (ftm *FileTransferManager) AddTask(fileInfo *models.FileInfo, account *models.Account, taskType TaskType, doneBytes int64) int32 {
 	taskId := ftm.idGen.NextAndRef()
 	ftm.taskMap.Store(taskId, &Task{
 		Id:        taskId,

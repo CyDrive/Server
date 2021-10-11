@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+option go_package = "github.com/CyDrive/modelss";
+
+package models;
+
+message FileInfo {
+    string file_path = 1;
+    int64 size = 2;
+    int64 modify_time = 3;
+    bool is_dir = 4;
+    bool is_compressed = 5;
+}

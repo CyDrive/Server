@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/CyDrive/consts"
-	"github.com/CyDrive/model"
+	"github.com/CyDrive/models"
 )
 
 const (
@@ -54,8 +54,8 @@ func UnpackRange(rangeStr string) (int64, int64) {
 	return begin, end
 }
 
-func PackSafeAccount(account *model.Account) *model.SafeAccount {
-	return &model.SafeAccount{
+func PackSafeAccount(account *models.Account) *models.SafeAccount {
+	return &models.SafeAccount{
 		Id:    account.Id,
 		Name:  account.Name,
 		Usage: account.Usage,
@@ -67,8 +67,8 @@ func GetDateTimeNow() string {
 	return time.Now().Format(consts.TimeFormat)
 }
 
-func NewFileInfo(fileInfo os.FileInfo, path string) model.FileInfo {
-	return model.FileInfo{
+func NewFileInfo(fileInfo os.FileInfo, path string) models.FileInfo {
+	return models.FileInfo{
 		ModifyTime:   fileInfo.ModTime().Unix(),
 		FilePath:     path,
 		Size:         fileInfo.Size(),
@@ -109,12 +109,12 @@ func ShouldCompressed(fileInfo os.FileInfo) bool {
 	return fileInfo.Size() > consts.CompressBaseline
 }
 
-func GetResp(resp *http.Response) *model.Response {
+func GetResp(resp *http.Response) *models.Response {
 	bytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil
 	}
-	res := model.Response{}
+	res := models.Response{}
 	if err = json.Unmarshal(bytes, &res); err != nil {
 		return nil
 	}
@@ -142,9 +142,9 @@ func ForEachFile(path string, handle func(file *os.File)) {
 }
 
 func ForEachRemoteFile(path string,
-	getFileInfo func(path string) *model.FileInfo,
-	readDir func(path string) []*model.FileInfo,
-	handle func(file *model.FileInfo)) {
+	getFileInfo func(path string) *models.FileInfo,
+	readDir func(path string) []*models.FileInfo,
+	handle func(file *models.FileInfo)) {
 
 	fileInfo := getFileInfo(path)
 	if fileInfo == nil {

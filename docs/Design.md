@@ -96,12 +96,12 @@ CyDrive 分为服务层和存储层两个部分，存储层只负责简单的存
 - Open(name string) (FileHandle, error)：打开文件，OpenFile 的特例
 - OpenFile(name string, flag int, perm os.FileMode) (FileHandle, error)：打开文件，可以设置打开的 flag 和权限控制
 - MkdirAll(path string, perm os.FileMode) error：创建目录
-- ReadDir(dirname string) ([]model.FileInfo, error)：获取一个目录下的文件列表
+- ReadDir(dirname string) ([]models.FileInfo, error)：获取一个目录下的文件列表
 - Chtimes(name string, atime time.Time, mtime time.Time) error：修改一个文件的访问时间，修改时间
-- Stat(name string) (model.FileInfo, error)：获取文件元信息
+- Stat(name string) (models.FileInfo, error)：获取文件元信息
 
 #### FileHandle
-- Stat() (model.FileInfo, error)：获取文件元信息
+- Stat() (models.FileInfo, error)：获取文件元信息
 - Seek(offset int64, whence int) (int64, error)：移动读写位置
 - Chmod(mode os.FileMode) error：更改文件权限
 - Close() error：关闭描述符
@@ -143,9 +143,9 @@ CyDrive 分为服务层和存储层两个部分，存储层只负责简单的存
 
 ### 存储接口
 - MkdirAll(path string, perm os.FileMode) error：创建目录
-- ReadDir(dirname string) ([]model.FileInfo, error)：获取一个目录下的文件列表
+- ReadDir(dirname string) ([]models.FileInfo, error)：获取一个目录下的文件列表
 - Chtimes(name string, atime time.Time, mtime time.Time) error：修改一个文件的访问时间，修改时间
-- Stat(name string) (model.FileInfo, error)：获取文件元信息
+- Stat(name string) (models.FileInfo, error)：获取文件元信息
 - Read(name string, offset int64, num int64)：读文件
 - Write(name string, offset int64, num int64)：写文件
 
