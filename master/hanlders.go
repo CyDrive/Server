@@ -16,6 +16,7 @@ import (
 	"github.com/CyDrive/utils"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
 // Account handlers
@@ -91,6 +92,7 @@ func LoginHandle(c *gin.Context) {
 		})
 		return
 	}
+	log.Infof("req=%+v", req)
 
 	account, err := GetAccountStore().GetAccountByEmail(req.Email)
 	if err != nil {
@@ -100,6 +102,8 @@ func LoginHandle(c *gin.Context) {
 		})
 		return
 	}
+	log.Infof("account=%+v", account)
+
 	if account.Password != req.Password {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_AuthError,
@@ -122,6 +126,7 @@ func LoginHandle(c *gin.Context) {
 	}
 
 	safeAccount := utils.PackSafeAccount(account)
+
 	safeAccountBytes, err := json.Marshal(safeAccount)
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{

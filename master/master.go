@@ -1,12 +1,15 @@
 package master
 
 import (
+	"encoding/gob"
 	"net"
+	"time"
 
 	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
 	"github.com/CyDrive/master/envs"
 	"github.com/CyDrive/master/store"
+	"github.com/CyDrive/models"
 	"github.com/CyDrive/rpc"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/memstore"
@@ -14,6 +17,11 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
+
+func init() {
+	gob.Register(models.Account{})
+	gob.Register(time.Time{})
+}
 
 var (
 	master *Master
@@ -61,14 +69,18 @@ func NewMaster(config config.Config) *Master {
 		accountStore = store.NewMemStore()
 	}
 
-	master := Master{
+	if env == nil || accountStore == nil {
+		panic("error when initialize")
+	}
+
+	master = &Master{
 		nodeManagerServer:   &NodeManagerServer{},
 		fileTransferManager: NewFileTransferManager(),
 		env:                 env,
 		accountStore:        accountStore,
 	}
 
-	return &master
+	return master
 }
 
 func (m *Master) Start() {

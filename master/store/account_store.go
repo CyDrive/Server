@@ -58,7 +58,8 @@ func NewMemStore() *MemStore {
 		// Get the storage usage
 		account.Usage, _ = utils.DirSize(utils.GetAccountDataDir(account))
 
-		store.accountEmailMap[account.Name] = account
+		store.idGen.Ref(account.Id)
+		store.accountEmailMap[account.Email] = account
 	}
 
 	go store.persistThread()
