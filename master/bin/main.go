@@ -34,9 +34,12 @@ func init() {
 	if err = yaml.Unmarshal(configBytes, &conf); err != nil {
 		panic(err)
 	}
+	log.Infof("config: %+v", conf)
 }
 
 func main() {
 	master := NewMaster(conf)
+
+	log.Info("start master")
 	master.Start()
 }

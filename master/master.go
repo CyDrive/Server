@@ -11,6 +11,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/memstore"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
 
@@ -72,6 +73,7 @@ func NewMaster(config config.Config) *Master {
 
 func (m *Master) Start() {
 	// HTTP services
+	log.Info("start http services...")
 	router := gin.Default()
 	memStore := memstore.NewStore([]byte("ProjectMili"))
 	router.Use(sessions.SessionsMany([]string{"account"}, memStore))
@@ -90,6 +92,7 @@ func (m *Master) Start() {
 	go router.Run(consts.HttpListenPortStr)
 
 	// RPC services
+	log.Info("start rpc services...")
 	listen, err := net.Listen("tcp", consts.RpcListenPortStr)
 	if err != nil {
 		panic(err)
@@ -99,5 +102,6 @@ func (m *Master) Start() {
 	go grpcServer.Serve(listen)
 
 	// Start FileTransferManager
+	log.Info("start file transfer manager...")
 	m.fileTransferManager.Listen()
 }
