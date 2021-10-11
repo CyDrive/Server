@@ -8,6 +8,7 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
@@ -142,6 +143,8 @@ func (store *MemStore) persistThread() {
 
 			atomic.AddInt32(&store.updatedFlag, -updatedNum)
 		}
+
+		time.Sleep(time.Second)
 	}
 }
 

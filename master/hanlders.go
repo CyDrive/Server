@@ -377,7 +377,7 @@ func UploadHandle(c *gin.Context) {
 	}
 
 	// Change the modified time
-	if err = GetEnv().Chtimes(filePath, time.Now(), time.Unix(fileInfo.ModifyTime, 0)); err != nil {
+	if err = GetEnv().Chtimes(filePath, time.Now(), fileInfo.ModifyTime.AsTime()); err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
 			Message:    err.Error(),

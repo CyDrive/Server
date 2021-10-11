@@ -16,6 +16,7 @@ import (
 
 	"github.com/CyDrive/consts"
 	"github.com/CyDrive/models"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -73,7 +74,7 @@ func GetDateTimeNow() string {
 
 func NewFileInfo(fileInfo os.FileInfo, path string) models.FileInfo {
 	return models.FileInfo{
-		ModifyTime:   fileInfo.ModTime().Unix(),
+		ModifyTime:   timestamppb.New(fileInfo.ModTime()),
 		FilePath:     path,
 		Size:         fileInfo.Size(),
 		IsDir:        fileInfo.IsDir(),
