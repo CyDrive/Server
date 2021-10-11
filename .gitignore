@@ -11,4 +11,6 @@ main
 log
 master/bin/*
 !master/bin/main.go
+!master/bin/accounts.json
+!master/bin/master-config.yaml
 *.cs
