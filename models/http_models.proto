@@ -1,10 +1,17 @@
 syntax = "proto3";
 
-option go_package = "github.com/CyDrive/modelss";
-
+option go_package = "github.com/CyDrive/models";
+option csharp_namespace = "CyDrive.Models";
 package models;
 
 import "models/file_info.proto";
+import "consts/enums.proto";
+
+message Response {
+    consts.StatusCode status_code = 1;
+    string message = 2;
+    string data = 3;
+}
 
 message RegisterRequest {
     // required:
@@ -21,6 +28,10 @@ message LoginRequest {
     string password = 2;
 }
 
+message GetFileListResponse {
+    repeated models.FileInfo file_info_list = 1;
+}
+
 message DownloadResponse {
     string node_addr = 1;
     int32 task_id = 2;
@@ -34,5 +45,6 @@ message UploadRequest {
 message UploadResponse {
     string node_addr = 1;
     int32 task_id = 2;
+    int64 offset = 3;
 }
 

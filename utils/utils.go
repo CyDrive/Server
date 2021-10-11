@@ -63,6 +63,10 @@ func PackSafeAccount(account *models.Account) *models.SafeAccount {
 	}
 }
 
+func GetAccountDataDir(account *models.Account) string {
+	return fmt.Sprintf("data/%v/", account.Id)
+}
+
 func GetDateTimeNow() string {
 	return time.Now().Format(consts.TimeFormat)
 }

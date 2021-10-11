@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 
@@ -56,7 +55,7 @@ func NewMemStore() *MemStore {
 	json.Unmarshal(data, &accountArray)
 	for _, account := range accountArray {
 		// Get the storage usage
-		account.Usage, _ = utils.DirSize(account.DataDir)
+		account.Usage, _ = utils.DirSize(utils.GetAccountDataDir(account))
 
 		store.accountEmailMap[account.Name] = account
 	}
@@ -183,7 +182,6 @@ func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
 		return nil
 	}
 
-	account.DataDir = filepath.Join(consts.UserDataDir, fmt.Sprint(account.Id))
 	realAccount, _ := account.ToPB(context.Background())
 	return &realAccount
 }

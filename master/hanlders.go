@@ -145,12 +145,12 @@ func ListHandle(c *gin.Context) {
 	path := c.Param("path")
 
 	path = strings.Trim(path, "/")
-	absPath := strings.Join([]string{account.DataDir, path}, "/")
+	absPath := strings.Join([]string{utils.GetAccountDataDir(account), path}, "/")
 
 	fileList, err := GetEnv().ReadDir(absPath)
 	for i := range fileList {
 		fileList[i].FilePath = strings.ReplaceAll(fileList[i].FilePath, "\\", "/")
-		fileList[i].FilePath = strings.TrimPrefix(fileList[i].FilePath, account.DataDir)
+		fileList[i].FilePath = strings.TrimPrefix(fileList[i].FilePath, utils.GetAccountDataDir(account))
 	}
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
@@ -181,7 +181,7 @@ func GetFileInfoHandle(c *gin.Context) {
 
 	filePath := c.Param("path")
 	filePath = strings.Trim(filePath, "/")
-	absFilePath := filepath.Join(account.DataDir, filePath)
+	absFilePath := filepath.Join(utils.GetAccountDataDir(account), filePath)
 
 	fileInfo, err := GetEnv().Stat(absFilePath)
 	if err != nil {
@@ -214,7 +214,7 @@ func GetFileInfoHandle(c *gin.Context) {
 
 // 	filePath := c.Param("path")
 // 	filePath = strings.Trim(filePath, "/")
-// 	absFilePath := filepath.Join(account.DataDir, filePath)
+// 	absFilePath := filepath.Join(utils.GetAccountDataDir(account), filePath)
 
 // 	_, err := GetEnv().Stat(absFilePath)
 // 	if err != nil {
@@ -276,7 +276,7 @@ func DownloadHandle(c *gin.Context) {
 	filePath := c.Param("path")
 
 	// absolute filepath
-	filePath = strings.Join([]string{account.DataDir, filePath}, "/")
+	filePath = strings.Join([]string{utils.GetAccountDataDir(account), filePath}, "/")
 	fileInfo, _ := GetEnv().Stat(filePath)
 
 	if fileInfo.IsDir {
@@ -297,7 +297,7 @@ func DownloadHandle(c *gin.Context) {
 	taskId := GetFileTransferManager().AddTask(&fileInfo, account, DownloadTaskType, begin)
 
 	uFileInfo := fileInfo
-	uFileInfo.FilePath, _ = filepath.Rel(account.DataDir, uFileInfo.FilePath)
+	uFileInfo.FilePath, _ = filepath.Rel(utils.GetAccountDataDir(account), uFileInfo.FilePath)
 	uFileInfo.FilePath = strings.ReplaceAll(uFileInfo.FilePath, "\\", "/")
 
 	resp := models.DownloadResponse{
@@ -327,7 +327,7 @@ func UploadHandle(c *gin.Context) {
 
 	filePath := c.Param("path")
 
-	filePath = strings.Join([]string{account.DataDir, filePath}, "/")
+	filePath = strings.Join([]string{utils.GetAccountDataDir(account), filePath}, "/")
 	fileDir := filepath.Dir(filePath)
 	if err := GetEnv().MkdirAll(fileDir, 0666); err != nil {
 		c.JSON(http.StatusOK, models.Response{

@@ -1,7 +1,7 @@
 syntax = "proto3";
 
-option go_package = "github.com/CyDrive/modelss";
-
+option go_package = "github.com/CyDrive/models";
+option csharp_namespace = "CyDrive.Models";
 package models;
 
 import "google/protobuf/timestamp.proto";
@@ -25,8 +25,7 @@ message Account {
     int64 cap = 5 [(gorm.field).tag = {default: "0"}];
 
     string password = 6 [(gorm.field).tag = {not_null: true}];
-    string data_dir = 7 [(gorm.field).tag = {not_null: true}];
 
-    google.protobuf.Timestamp created_at = 8;
-    google.protobuf.Timestamp updated_at = 9;
+    google.protobuf.Timestamp created_at = 7;
+    google.protobuf.Timestamp updated_at = 8;
 }

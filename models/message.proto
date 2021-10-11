@@ -1,6 +1,7 @@
 syntax = "proto3";
 
-option go_package = "github.com/CyDrive/modelss";
+option go_package = "github.com/CyDrive/models";
+option csharp_namespace = "CyDrive.Models";
 package models;
 
 import "google/protobuf/timestamp.proto";

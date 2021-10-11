@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/CyDrive/consts"
-	"github.com/CyDrive/utils"
 	"github.com/CyDrive/models"
+	"github.com/CyDrive/utils"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -143,7 +143,7 @@ func (ftm *FileTransferManager) DownloadHandle(task *Task) {
 }
 
 func (ftm *FileTransferManager) UploadHandle(task *Task) {
-	filePath := filepath.Join(task.Account.DataDir, task.FileInfo.FilePath)
+	filePath := filepath.Join(utils.GetAccountDataDir(task.Account), task.FileInfo.FilePath)
 
 	file, err := GetEnv().OpenFile(filePath, os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {

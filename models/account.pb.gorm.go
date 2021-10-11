@@ -16,7 +16,6 @@ import (
 type AccountORM struct {
 	Cap       int64 `gorm:"default:0"`
 	CreatedAt *time.Time
-	DataDir   string `gorm:"not null"`
 	Email     string `gorm:"unique;not null"`
 	Id        int32  `gorm:"primary_key"`
 	Name      string `gorm:"not null"`
@@ -46,7 +45,6 @@ func (m *Account) ToORM(ctx context.Context) (AccountORM, error) {
 	to.Usage = m.Usage
 	to.Cap = m.Cap
 	to.Password = m.Password
-	to.DataDir = m.DataDir
 	if m.CreatedAt != nil {
 		t := m.CreatedAt.AsTime()
 		to.CreatedAt = &t
@@ -77,7 +75,6 @@ func (m *AccountORM) ToPB(ctx context.Context) (Account, error) {
 	to.Usage = m.Usage
 	to.Cap = m.Cap
 	to.Password = m.Password
-	to.DataDir = m.DataDir
 	if m.CreatedAt != nil {
 		to.CreatedAt = timestamppb.New(*m.CreatedAt)
 	}
@@ -417,10 +414,6 @@ func DefaultApplyFieldMaskAccount(ctx context.Context, patchee *Account, patcher
 		}
 		if f == prefix+"Password" {
 			patchee.Password = patcher.Password
-			continue
-		}
-		if f == prefix+"DataDir" {
-			patchee.DataDir = patcher.DataDir
 			continue
 		}
 		if !updatedCreatedAt && strings.HasPrefix(f, prefix+"CreatedAt.") {

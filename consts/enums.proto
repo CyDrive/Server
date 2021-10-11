@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 option go_package = "github.com/CyDrive/consts";
+option csharp_namespace = "CyDrive";
 
 package consts;
 
