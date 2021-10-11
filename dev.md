@@ -12,3 +12,12 @@ CyDrive 中的很多 枚举量，struct 都是通过 protobuf 来定义的，例
 
 # 编译
 使用项目根目录下的的 build.sh 脚本来进行编译，该脚本会在 master/bin 下生成一个名为 master 的程序
+
+## 交叉编译
+为了便于测试，可以交叉编译 windows 版本，请在项目根目录使用
+```shell
+make all
+```
+来进行交叉编译
+
+这会在 master/bin 下生成一个 master_windows.exe，你可以直接在 Windows 系统中运行该程序

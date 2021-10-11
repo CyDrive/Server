@@ -11,8 +11,8 @@ message Message {
     option (gorm.opts).ormable = true;
 
     int64 id = 1 [(gorm.field).tag = {primary_key: true}];
-    int64 sender = 2;
-    int64 receiver = 3;
+    int32 sender = 2;
+    int32 receiver = 3;
     consts.MessageType type = 4;
     string content = 5;
     google.protobuf.Timestamp sended_at = 6;

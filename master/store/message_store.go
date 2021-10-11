@@ -7,15 +7,15 @@ import (
 )
 
 type MessageStore interface {
-	GetMessageByTime(userId int64, count int64, time time.Time) []*model.Message
+	GetMessageByTime(userId int32, count int32, time time.Time) []*model.Message
 	PutMessage(message *model.Message)
 }
 
 type MessageMemStore struct {
-	messageMap map[int64][]*model.Message
+	messageMap map[int32][]*model.Message
 }
 
-func (store MessageMemStore) GetMessageByTime(userId int64, count int64, time time.Time) []*model.Message {
+func (store MessageMemStore) GetMessageByTime(userId int32, count int32, time time.Time) []*model.Message {
 	messageList, ok := store.messageMap[userId]
 	if !ok {
 		return []*model.Message{}

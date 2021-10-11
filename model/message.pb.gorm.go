@@ -18,9 +18,9 @@ type MessageORM struct {
 	Content  string
 	Expire   int32
 	Id       int64 `gorm:"primary_key"`
-	Receiver int64
+	Receiver int32
 	SendedAt *time.Time
-	Sender   int64
+	Sender   int32
 	Type     int32
 }
 
