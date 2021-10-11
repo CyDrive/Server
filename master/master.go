@@ -80,6 +80,7 @@ func (m *Master) Start() {
 	router.Use(LoginAuth(router))
 	// router.Use(SetFileInfo())
 
+	router.POST("/register",)
 	router.POST("/login", LoginHandle)
 	router.GET("/list/*path", ListHandle)
 

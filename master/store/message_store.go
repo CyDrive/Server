@@ -1,8 +1,9 @@
 package store
 
 import (
-	"github.com/CyDrive/model"
 	"time"
+
+	"github.com/CyDrive/model"
 )
 
 type MessageStore interface {
@@ -16,7 +17,7 @@ type MessageMemStore struct {
 
 func (store MessageMemStore) GetMessageByTime(userId int64, count int64, time time.Time) []*model.Message {
 	messageList, ok := store.messageMap[userId]
-	if ok == false {
+	if !ok {
 		return []*model.Message{}
 	}
 	left := 0
@@ -42,7 +43,7 @@ func (store MessageMemStore) GetMessageByTime(userId int64, count int64, time ti
 func (store MessageMemStore) PutMessage(message *model.Message) {
 	receiverId := message.Receiver
 	_, ok := store.messageMap[receiverId]
-	if ok == false {
+	if !ok {
 		store.messageMap[receiverId] = []*model.Message{}
 	}
 	store.messageMap[receiverId] = append(store.messageMap[receiverId], message)

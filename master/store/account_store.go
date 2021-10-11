@@ -30,6 +30,7 @@ type AccountStore interface {
 // Store users in memory
 // load from a json file
 type MemStore struct {
+	idGen           *utils.IdGenerator
 	accountEmailMap map[string]*model.Account
 	rwMutex         *sync.RWMutex // guard for accountEmailMap
 
@@ -38,6 +39,7 @@ type MemStore struct {
 
 func NewMemStore() *MemStore {
 	store := MemStore{
+		idGen:           utils.NewIdGenerator(),
 		accountEmailMap: make(map[string]*model.Account),
 		rwMutex:         &sync.RWMutex{},
 		updatedFlag:     0,
@@ -59,9 +61,13 @@ func NewMemStore() *MemStore {
 		store.accountEmailMap[account.Name] = account
 	}
 
+	go store.persistThread()
+
 	return &store
 }
 
+// required fields: Email, Password
+// optional fields: Name, Cap
 func (store *MemStore) AddAccount(account *model.Account) error {
 	store.rwMutex.RLock()
 	_, ok := store.accountEmailMap[account.Email]
@@ -74,6 +80,7 @@ func (store *MemStore) AddAccount(account *model.Account) error {
 	store.rwMutex.Lock()
 	defer store.rwMutex.Unlock()
 
+	account.Id = store.idGen.NextAndRef()
 	store.accountEmailMap[account.Email] = account
 	store.updatedFlag++
 
@@ -128,13 +135,14 @@ func (store *MemStore) ExpandCap(email string, newCap int64) error {
 
 func (store *MemStore) persistThread() {
 	for {
-		store.rwMutex.RLock()
 		updatedNum := atomic.LoadInt32(&store.updatedFlag)
 		if updatedNum > 0 {
+			store.rwMutex.RLock()
 			store.save()
+			store.rwMutex.RUnlock()
+
 			atomic.AddInt32(&store.updatedFlag, -updatedNum)
 		}
-		store.rwMutex.RUnlock()
 	}
 }
 

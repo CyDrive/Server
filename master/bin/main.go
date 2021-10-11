@@ -14,9 +14,6 @@ import (
 
 var (
 	conf config.Config
-
-	isOnline      bool
-	serverAddress string
 )
 
 func init() {
@@ -35,6 +32,8 @@ func init() {
 		panic(err)
 	}
 	log.Infof("config: %+v", conf)
+
+	config.IpAddr = conf.Ipv4Addr
 }
 
 func main() {

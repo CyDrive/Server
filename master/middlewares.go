@@ -13,7 +13,8 @@ import (
 
 func LoginAuth(router *gin.Engine) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if strings.Trim(c.Request.URL.Path, "/") == "login" {
+		apiUrl := strings.Trim(c.Request.URL.Path, "/")
+		if apiUrl == "login" || apiUrl == "register" {
 			c.Next()
 			return
 		}

@@ -3,14 +3,14 @@ package config
 import "fmt"
 
 var (
-	IpAddr = "123.57.39.79"
+	IpAddr string = "0.0.0.0"
 )
 
 type Config struct {
-	// "rdb" or "mem"
+	Ipv4Addr         string `yaml:"ipv4_addr"`
 	AccountStoreType string `yaml:"account_store_type"`
 
-	// only for rdb
+	// only for relational database
 	DatabaseAddr     string `yaml:"database_addr,omitempty"`
 	DatabaseName     string `yaml:"database_name,omitempty"`
 	DatabaseUser     string `yaml:"database_user,omitempty"`

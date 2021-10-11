@@ -12,14 +12,16 @@ type IdGenerator struct {
 
 	currentId int32
 
-	idRefMap sync.Map
+	idRefMap *sync.Map
 }
 
 func NewIdGenerator() *IdGenerator {
 	return &IdGenerator{
-		minId:     math.MinInt32,
+		minId:     1,
 		maxId:     math.MaxInt32,
-		currentId: math.MinInt32,
+		currentId: 1,
+
+		idRefMap: &sync.Map{},
 	}
 }
 
@@ -29,7 +31,7 @@ func (idGen *IdGenerator) SetMinId(minId int32) {
 	for {
 		oldId := atomic.LoadInt32(&idGen.currentId)
 		if oldId < minId &&
-				atomic.CompareAndSwapInt32(&idGen.currentId, oldId, minId) {
+			atomic.CompareAndSwapInt32(&idGen.currentId, oldId, minId) {
 			break
 		}
 	}
@@ -41,18 +43,25 @@ func (idGen *IdGenerator) SetMaxId(maxId int32) {
 	for {
 		oldId := atomic.LoadInt32(&idGen.currentId)
 		if oldId > maxId &&
-				atomic.CompareAndSwapInt32(&idGen.currentId, oldId, idGen.minId) {
+			atomic.CompareAndSwapInt32(&idGen.currentId, oldId, idGen.minId) {
 			break
 		}
 	}
 }
 
 func (idGen *IdGenerator) Next() int32 {
-	return atomic.AddInt32(&idGen.currentId, 1) - 1
+	var id int32
+	for {
+		id = atomic.AddInt32(&idGen.currentId, 1) - 1
+		if _, ok := idGen.idRefMap.Load(id); !ok {
+			break
+		}
+	}
+	return id
 }
 
 func (idGen *IdGenerator) NextAndRef() int32 {
-	id := atomic.AddInt32(&idGen.currentId, 1) - 1
+	id := idGen.Next()
 	idGen.Ref(id)
 	return id
 }

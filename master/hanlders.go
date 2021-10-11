@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,12 +19,66 @@ import (
 )
 
 // Account handlers
+func RegisterHandle(c *gin.Context) {
+	email, ok := c.GetPostForm("email")
+	if !ok {
+		c.JSON(http.StatusOK, model.Response{
+			StatusCode: consts.StatusCode_AuthError,
+			Message:    "no account email",
+		})
+		return
+	}
+
+	password, ok := c.GetPostForm("password")
+	if !ok {
+		c.JSON(http.StatusOK, model.Response{
+			StatusCode: consts.StatusCode_AuthError,
+			Message:    "no password",
+		})
+		return
+	}
+
+	account := &model.Account{
+		Email:    email,
+		Password: password,
+	}
+
+	if name, ok := c.GetPostForm("name"); ok {
+		account.Name = name
+	}
+	if cap, ok := c.GetPostForm("cap"); ok {
+		var err error
+		account.Cap, err = strconv.ParseInt(cap, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusOK, model.Response{
+				StatusCode: consts.StatusCode_InvalidParameters,
+				Message:    "invalid parameter: cap",
+			})
+			return
+		}
+	}
+
+	err := GetAccountStore().AddAccount(account)
+	if err != nil {
+		c.JSON(http.StatusOK, model.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    "register account error: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.Response{
+		StatusCode: consts.StatusCode_Ok,
+		Message:    "account created",
+	})
+}
+
 func LoginHandle(c *gin.Context) {
 	email, ok := c.GetPostForm("email")
 	if !ok {
 		c.JSON(http.StatusOK, model.Response{
 			StatusCode: consts.StatusCode_AuthError,
-			Message:    "no account name",
+			Message:    "no account email",
 		})
 		return
 	}

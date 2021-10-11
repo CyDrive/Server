@@ -18,7 +18,7 @@ type AccountORM struct {
 	CreatedAt *time.Time
 	DataDir   string `gorm:"not null"`
 	Email     string `gorm:"unique;not null"`
-	Id        int64  `gorm:"primary_key"`
+	Id        int32  `gorm:"primary_key"`
 	Name      string `gorm:"not null"`
 	Password  string `gorm:"not null"`
 	UpdatedAt *time.Time
@@ -231,7 +231,7 @@ func DefaultDeleteAccountSet(ctx context.Context, in []*Account, db *gorm.DB) er
 		return errors.NilArgumentError
 	}
 	var err error
-	keys := []int64{}
+	keys := []int32{}
 	for _, obj := range in {
 		ormObj, err := obj.ToORM(ctx)
 		if err != nil {

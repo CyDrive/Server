@@ -56,10 +56,10 @@ func UnpackRange(rangeStr string) (int64, int64) {
 
 func PackSafeAccount(account *model.Account) *model.SafeAccount {
 	return &model.SafeAccount{
-		Id:       account.Id,
-		UserName: account.Name,
-		Usage:    account.Usage,
-		Cap:      account.Cap,
+		Id:    account.Id,
+		Name:  account.Name,
+		Usage: account.Usage,
+		Cap:   account.Cap,
 	}
 }
 
