@@ -1,7 +1,6 @@
 package master
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -17,6 +16,16 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/encoding/protojson"
+)
+
+var (
+	encoder = protojson.MarshalOptions{
+		UseProtoNames: true,
+	}
+	decoder = protojson.UnmarshalOptions{
+		DiscardUnknown: true,
+	}
 )
 
 // Account handlers
@@ -31,7 +40,7 @@ func RegisterHandle(c *gin.Context) {
 		return
 	}
 
-	err = json.Unmarshal(reqBytes, &req)
+	err = decoder.Unmarshal(reqBytes, &req)
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
@@ -64,7 +73,7 @@ func RegisterHandle(c *gin.Context) {
 		return
 	}
 
-	safeAccountBytes, _ := json.Marshal(utils.PackSafeAccount(account))
+	safeAccountBytes, _ := encoder.Marshal(utils.PackSafeAccount(account))
 
 	c.JSON(http.StatusOK, models.Response{
 		StatusCode: consts.StatusCode_Ok,
@@ -84,7 +93,7 @@ func LoginHandle(c *gin.Context) {
 		return
 	}
 
-	err = json.Unmarshal(reqBytes, &req)
+	err = decoder.Unmarshal(reqBytes, &req)
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
@@ -114,7 +123,7 @@ func LoginHandle(c *gin.Context) {
 
 	userSession := sessions.DefaultMany(c, "account")
 
-	userSession.Set("userStruct", &account)
+	userSession.Set("userStruct", account)
 	userSession.Set("expire", time.Now().Add(time.Hour*12))
 	err = userSession.Save()
 	if err != nil {
@@ -127,7 +136,7 @@ func LoginHandle(c *gin.Context) {
 
 	safeAccount := utils.PackSafeAccount(account)
 
-	safeAccountBytes, err := json.Marshal(safeAccount)
+	safeAccountBytes, err := encoder.Marshal(safeAccount)
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
@@ -143,42 +152,42 @@ func LoginHandle(c *gin.Context) {
 	})
 }
 
-func ListHandle(c *gin.Context) {
-	userI, _ := c.Get("account")
-	account := userI.(*models.Account)
+// func ListHandle(c *gin.Context) {
+// 	userI, _ := c.Get("account")
+// 	account := userI.(*models.Account)
 
-	path := c.Param("path")
+// 	path := c.Param("path")
 
-	path = strings.Trim(path, "/")
-	absPath := strings.Join([]string{utils.GetAccountDataDir(account), path}, "/")
+// 	path = strings.Trim(path, "/")
+// 	absPath := strings.Join([]string{utils.GetAccountDataDir(account), path}, "/")
 
-	fileList, err := GetEnv().ReadDir(absPath)
-	for i := range fileList {
-		fileList[i].FilePath = strings.ReplaceAll(fileList[i].FilePath, "\\", "/")
-		fileList[i].FilePath = strings.TrimPrefix(fileList[i].FilePath, utils.GetAccountDataDir(account))
-	}
-	if err != nil {
-		c.JSON(http.StatusOK, models.Response{
-			StatusCode: consts.StatusCode_IoError,
-			Message:    err.Error(),
-		})
-		return
-	}
+// 	fileList, err := GetEnv().ReadDir(absPath)
+// 	for i := range fileList {
+// 		fileList[i].FilePath = strings.ReplaceAll(fileList[i].FilePath, "\\", "/")
+// 		fileList[i].FilePath = strings.TrimPrefix(fileList[i].FilePath, utils.GetAccountDataDir(account))
+// 	}
+// 	if err != nil {
+// 		c.JSON(http.StatusOK, models.Response{
+// 			StatusCode: consts.StatusCode_IoError,
+// 			Message:    err.Error(),
+// 		})
+// 		return
+// 	}
 
-	fileListJson, err := json.Marshal(fileList)
-	if err != nil {
-		c.JSON(http.StatusOK, models.Response{
-			StatusCode: consts.StatusCode_InternalError,
-			Message:    err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, models.Response{
-		StatusCode: consts.StatusCode_Ok,
-		Message:    "list done",
-		Data:       string(fileListJson),
-	})
-}
+// 	fileListJson, err := json.Marshal(fileList)
+// 	if err != nil {
+// 		c.JSON(http.StatusOK, models.Response{
+// 			StatusCode: consts.StatusCode_InternalError,
+// 			Message:    err.Error(),
+// 		})
+// 		return
+// 	}
+// 	c.JSON(http.StatusOK, models.Response{
+// 		StatusCode: consts.StatusCode_Ok,
+// 		Message:    "list done",
+// 		Data:       string(fileListJson),
+// 	})
+// }
 
 func GetFileInfoHandle(c *gin.Context) {
 	userI, _ := c.Get("account")
@@ -197,7 +206,7 @@ func GetFileInfoHandle(c *gin.Context) {
 		return
 	}
 
-	fileInfoBytes, err := json.Marshal(fileInfo)
+	fileInfoBytes, err := encoder.Marshal(fileInfo)
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
@@ -299,18 +308,19 @@ func DownloadHandle(c *gin.Context) {
 		begin, _ = utils.UnpackRange(bytesRange)
 	}
 
-	taskId := GetFileTransferManager().AddTask(&fileInfo, account, DownloadTaskType, begin)
-
 	uFileInfo := fileInfo
 	uFileInfo.FilePath, _ = filepath.Rel(utils.GetAccountDataDir(account), uFileInfo.FilePath)
 	uFileInfo.FilePath = strings.ReplaceAll(uFileInfo.FilePath, "\\", "/")
 
+	log.Infof("clientIp=%+v", c.ClientIP())
+	taskId := GetFileTransferor().CreateTask(c.ClientIP(), uFileInfo, account, DataTaskType_Download, begin)
 	resp := models.DownloadResponse{
-		NodeAddr: config.IpAddr,
+		NodeAddr: config.IpAddr + consts.FileTransferorListenPortStr,
 		TaskId:   taskId,
-		FileInfo: &uFileInfo,
+		FileInfo: uFileInfo,
 	}
-	respBytes, err := json.Marshal(resp)
+	log.Infof("downloadResp=%+v", resp)
+	respBytes, err := encoder.Marshal(&resp)
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
@@ -352,7 +362,7 @@ func UploadHandle(c *gin.Context) {
 		})
 		return
 	}
-	if len(jsonBytes) == 0 || json.Unmarshal(jsonBytes, &req) != nil {
+	if len(jsonBytes) == 0 || decoder.Unmarshal(jsonBytes, &req) != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
 			Message:    "need file info",
@@ -362,20 +372,11 @@ func UploadHandle(c *gin.Context) {
 
 	fileInfo := req.FileInfo
 
-	// Check file size
-	if fileInfo.Size > consts.FileSizeLimit {
-		c.JSON(http.StatusOK, models.Response{
-			StatusCode: consts.StatusCode_FileTooLarge,
-			Message:    "file is too large",
-		})
-		return
-	}
-
 	// Check account storage capability
-	if fileInfo.Size > account.Cap {
+	if account.Usage+fileInfo.Size > account.Cap {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_FileTooLarge,
-			Message: fmt.Sprintf("no enough capability, free storage: %vMiB, and size of the file: %vMiB",
+			Message: fmt.Sprintf("no enough cap, free storage: %vMiB, and size of the file: %vMiB",
 				(account.Cap-account.Usage)>>20, fileInfo.Size>>20), // Convert Byte to MB
 		})
 		return
@@ -390,14 +391,14 @@ func UploadHandle(c *gin.Context) {
 		return
 	}
 
-	taskId := ftm.AddTask(fileInfo, account, UploadTaskType, fileInfo.Size)
+	taskId := GetFileTransferor().CreateTask(c.ClientIP(), fileInfo, account, DataTaskType_Upload, fileInfo.Size)
 
 	resp := models.UploadResponse{
 		NodeAddr: config.IpAddr,
 		TaskId:   taskId,
 	}
 
-	respBytes, err := json.Marshal(resp)
+	respBytes, err := encoder.Marshal(&resp)
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,

@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/CyDrive/utils"
 	"github.com/CyDrive/models"
+	"github.com/CyDrive/utils"
 )
 
 type FileHandle interface {
-	Stat() (models.FileInfo, error)
+	Stat() (*models.FileInfo, error)
 	Seek(offset int64, whence int) (int64, error)
 	Chmod(mode os.FileMode) error
 	Close() error
@@ -32,10 +32,10 @@ func NewLocalFile(file *os.File, path string) *LocalFile {
 	}
 }
 
-func (l *LocalFile) Stat() (models.FileInfo, error) {
+func (l *LocalFile) Stat() (*models.FileInfo, error) {
 	inner, err := l.file.Stat()
 	if err != nil {
-		return models.FileInfo{}, err
+		return &models.FileInfo{}, err
 	}
 
 	return utils.NewFileInfo(inner, l.path), nil
@@ -65,9 +65,9 @@ type Env interface {
 	Open(name string) (FileHandle, error)
 	OpenFile(name string, flag int, perm os.FileMode) (FileHandle, error)
 	MkdirAll(path string, perm os.FileMode) error
-	ReadDir(dirname string) ([]models.FileInfo, error)
+	ReadDir(dirname string) ([]*models.FileInfo, error)
 	Chtimes(name string, atime time.Time, mtime time.Time) error
-	Stat(name string) (models.FileInfo, error)
+	Stat(name string) (*models.FileInfo, error)
 }
 
 type LocalEnv struct{}
@@ -98,13 +98,13 @@ func (l *LocalEnv) MkdirAll(path string, perm os.FileMode) error {
 	return os.MkdirAll(path, perm)
 }
 
-func (l *LocalEnv) ReadDir(dirname string) ([]models.FileInfo, error) {
+func (l *LocalEnv) ReadDir(dirname string) ([]*models.FileInfo, error) {
 	innerList, err := ioutil.ReadDir(dirname)
 	if err != nil {
 		return nil, err
 	}
 
-	fileInfoList := []models.FileInfo{}
+	fileInfoList := []*models.FileInfo{}
 	for _, info := range innerList {
 		fileInfoList = append(fileInfoList,
 			utils.NewFileInfo(info, filepath.Join(dirname, info.Name())))
@@ -117,10 +117,10 @@ func (l *LocalEnv) Chtimes(name string, atime time.Time, mtime time.Time) error 
 	return os.Chtimes(name, atime, mtime)
 }
 
-func (l *LocalEnv) Stat(name string) (models.FileInfo, error) {
+func (l *LocalEnv) Stat(name string) (*models.FileInfo, error) {
 	inner, err := os.Stat(name)
 	if err != nil {
-		return models.FileInfo{}, err
+		return &models.FileInfo{}, err
 	}
 
 	return utils.NewFileInfo(inner, name), nil

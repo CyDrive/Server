@@ -19,7 +19,7 @@ import (
 )
 
 func init() {
-	gob.Register(models.Account{})
+	gob.Register(&models.Account{})
 	gob.Register(time.Time{})
 }
 
@@ -31,8 +31,8 @@ func GetMaster() *Master {
 	return master
 }
 
-func GetFileTransferManager() *FileTransferManager {
-	return master.fileTransferManager
+func GetFileTransferor() *FileTransferor {
+	return master.fileTransferor
 }
 
 func GetAccountStore() store.AccountStore {
@@ -50,7 +50,7 @@ type NodeManagerServer struct {
 type Master struct {
 	nodeManagerServer *NodeManagerServer
 
-	fileTransferManager *FileTransferManager
+	fileTransferor *FileTransferor
 
 	env          envs.Env
 	accountStore store.AccountStore
@@ -74,10 +74,10 @@ func NewMaster(config config.Config) *Master {
 	}
 
 	master = &Master{
-		nodeManagerServer:   &NodeManagerServer{},
-		fileTransferManager: NewFileTransferManager(),
-		env:                 env,
-		accountStore:        accountStore,
+		nodeManagerServer: &NodeManagerServer{},
+		fileTransferor:    NewFileTransferor(),
+		env:               env,
+		accountStore:      accountStore,
 	}
 
 	return master
@@ -94,7 +94,7 @@ func (m *Master) Start() {
 
 	router.POST("/register", RegisterHandle)
 	router.POST("/login", LoginHandle)
-	router.GET("/list/*path", ListHandle)
+	// router.GET("/list/*path", ListHandle)
 
 	router.GET("/file_info/*path", GetFileInfoHandle)
 	// router.PUT("/file_info/*path", PutFileInfoHandle)
@@ -116,5 +116,5 @@ func (m *Master) Start() {
 
 	// Start FileTransferManager
 	log.Info("start file transfer manager...")
-	m.fileTransferManager.Listen()
+	m.fileTransferor.Listen()
 }

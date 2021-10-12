@@ -4,13 +4,13 @@ type AccountStoreType = string
 type EnvType = string
 
 const (
-	HttpListenPort    = 6454
-	HttpListenPortStr = ":6454"
-	RpcListenPort     = 6455
-	RpcListenPortStr  = ":6455"
-	FtmListenPort     = 6456
-	FtmListenPortStr  = ":6456"
-	UserDataDir       = "user_data"
+	HttpListenPort              = 6454
+	HttpListenPortStr           = ":6454"
+	RpcListenPort               = 6455
+	RpcListenPortStr            = ":6455"
+	FileTransferorListenPort    = 6456
+	FileTransferorListenPortStr = ":6456"
+	UserDataDir                 = "user_data"
 
 	MemAccountStoreJsonPath = "accounts.json"
 
