@@ -313,7 +313,7 @@ func DownloadHandle(c *gin.Context) {
 	uFileInfo.FilePath = strings.ReplaceAll(uFileInfo.FilePath, "\\", "/")
 
 	log.Infof("clientIp=%+v", c.ClientIP())
-	taskId := GetFileTransferor().CreateTask(c.ClientIP(), uFileInfo, account, DataTaskType_Download, begin)
+	taskId := GetFileTransferor().CreateTask(c.ClientIP(), uFileInfo, account, consts.DataTaskType_Download, begin)
 	resp := models.DownloadResponse{
 		NodeAddr: config.IpAddr + consts.FileTransferorListenPortStr,
 		TaskId:   taskId,
@@ -352,8 +352,6 @@ func UploadHandle(c *gin.Context) {
 		return
 	}
 
-	var req models.UploadRequest
-
 	jsonBytes, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
@@ -362,10 +360,12 @@ func UploadHandle(c *gin.Context) {
 		})
 		return
 	}
-	if len(jsonBytes) == 0 || decoder.Unmarshal(jsonBytes, &req) != nil {
+
+	var req models.UploadRequest
+	if err = decoder.Unmarshal(jsonBytes, &req); err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
-			Message:    "need file info",
+			Message:    err.Error(),
 		})
 		return
 	}
@@ -391,7 +391,7 @@ func UploadHandle(c *gin.Context) {
 		return
 	}
 
-	taskId := GetFileTransferor().CreateTask(c.ClientIP(), fileInfo, account, DataTaskType_Upload, fileInfo.Size)
+	taskId := GetFileTransferor().CreateTask(c.ClientIP(), fileInfo, account, consts.DataTaskType_Upload, fileInfo.Size)
 
 	resp := models.UploadResponse{
 		NodeAddr: config.IpAddr,

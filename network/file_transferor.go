@@ -1,4 +1,4 @@
-package master
+package network
 
 import (
 	"bufio"
@@ -13,18 +13,11 @@ import (
 	"time"
 
 	"github.com/CyDrive/consts"
+	"github.com/CyDrive/master/envs"
 	"github.com/CyDrive/models"
+	"github.com/CyDrive/types"
 	"github.com/CyDrive/utils"
 	log "github.com/sirupsen/logrus"
-)
-
-type DataTaskType int32
-
-const (
-	DataTaskType_Download DataTaskType = iota
-	DataTaskType_Upload
-
-	DataTaskExpireTime int64 = 30 * 60
 )
 
 type DataTask struct {
@@ -34,7 +27,7 @@ type DataTask struct {
 	FileInfo     *models.FileInfo
 	Account      *models.Account
 	StartAt      time.Time
-	Type         DataTaskType
+	Type         types.DataTaskType
 	HasDoneBytes int64
 
 	// filled when client connects to the server
@@ -45,13 +38,15 @@ type DataTask struct {
 type FileTransferor struct {
 	taskMap *sync.Map
 	idGen   *utils.IdGenerator
+	env     envs.Env
 }
 
-func NewFileTransferor() *FileTransferor {
+func NewFileTransferor(env envs.Env) *FileTransferor {
 	idGen := utils.NewIdGenerator()
 	return &FileTransferor{
 		taskMap: &sync.Map{},
 		idGen:   idGen,
+		env:     env,
 	}
 }
 
@@ -75,7 +70,7 @@ func (ft *FileTransferor) Listen() {
 	}
 }
 
-func (ft *FileTransferor) CreateTask(clientIp string, fileInfo *models.FileInfo, account *models.Account, taskType DataTaskType, doneBytes int64) int32 {
+func (ft *FileTransferor) CreateTask(clientIp string, fileInfo *models.FileInfo, account *models.Account, taskType types.DataTaskType, doneBytes int64) int32 {
 	taskId := ft.idGen.NextAndRef()
 	// host, _, _ := net.SplitHostPort(clientIp)
 	task := &DataTask{
@@ -127,7 +122,7 @@ func (ft *FileTransferor) ProcessConn(conn *net.TCPConn) {
 	}
 
 	task.Conn = conn
-	if task.Type == DataTaskType_Download {
+	if task.Type == consts.DataTaskType_Download {
 		go ft.DownloadHandle(task)
 	} else {
 		go ft.UploadHandle(task)
@@ -137,7 +132,7 @@ func (ft *FileTransferor) ProcessConn(conn *net.TCPConn) {
 func (ft *FileTransferor) DownloadHandle(task *DataTask) {
 	path := strings.Join([]string{utils.GetAccountDataDir(task.Account),
 		task.FileInfo.FilePath}, "/")
-	file, err := GetEnv().Open(path)
+	file, err := ft.env.Open(path)
 	if err != nil {
 		log.Errorf("open file %+v error: %+v", task.FileInfo.FilePath, err)
 		// todo: notify account by message channel
@@ -162,7 +157,7 @@ func (ft *FileTransferor) DownloadHandle(task *DataTask) {
 
 		task.HasDoneBytes += written
 		if task.HasDoneBytes >= task.FileInfo.Size {
-			log.Infof("task finished")
+			log.Infof("task finished: task=%+v", task)
 			break
 		}
 	}
@@ -173,7 +168,7 @@ func (ft *FileTransferor) DownloadHandle(task *DataTask) {
 func (ft *FileTransferor) UploadHandle(task *DataTask) {
 	filePath := filepath.Join(utils.GetAccountDataDir(task.Account), task.FileInfo.FilePath)
 
-	file, err := GetEnv().OpenFile(filePath, os.O_CREATE|os.O_APPEND, 0666)
+	file, err := ft.env.OpenFile(filePath, os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Errorf("open file %+v error: %+v", filePath, err)
 		// todo: notify account by message channel
@@ -210,7 +205,7 @@ func (ft *FileTransferor) GcMaintenance() {
 			task := value.(*DataTask)
 
 			// No response for a long time
-			if time.Now().Unix()-atomic.LoadInt64(&task.LastAcessTime) >= DataTaskExpireTime {
+			if time.Now().Unix()-atomic.LoadInt64(&task.LastAcessTime) >= consts.DataTaskExpireTime {
 				tasksShouldBeDeleted = append(tasksShouldBeDeleted, task)
 			}
 

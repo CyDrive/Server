@@ -1,9 +1,11 @@
 # 项目结构
 CyDrive 主要分为 master（服务层）和 storage nodes（存储层）两个部分，分别位于 master 和 node 目录。他们有一些公共的部分，置于项目的根目录：
 - config：配置相关的目录
+- types：一些常用的类型定义
 - consts：常量，枚举
 - docs：文档
 - model：定义了一些 struct，例如各种请求的 request 和 response
+- network：网络相关的类
 - rpc：定义了 master 与 node 之间的 rpc 相关的结构
 - utils：封装了一些常用的方法和类型
 

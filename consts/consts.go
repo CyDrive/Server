@@ -1,7 +1,6 @@
 package consts
 
-type AccountStoreType = string
-type EnvType = string
+import . "github.com/CyDrive/types"
 
 const (
 	HttpListenPort              = 6454
@@ -27,4 +26,8 @@ const (
 	EnvTypeRemote = "remote"
 
 	TimeFormat = "2006-01-02 15.04.05"
+
+	DataTaskType_Download DataTaskType = iota
+	DataTaskType_Upload
+	DataTaskExpireTime int64 = 30 * 60
 )

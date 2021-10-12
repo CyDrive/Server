@@ -10,6 +10,7 @@ import (
 	"github.com/CyDrive/master/envs"
 	"github.com/CyDrive/master/store"
 	"github.com/CyDrive/models"
+	"github.com/CyDrive/network"
 	"github.com/CyDrive/rpc"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/memstore"
@@ -31,7 +32,7 @@ func GetMaster() *Master {
 	return master
 }
 
-func GetFileTransferor() *FileTransferor {
+func GetFileTransferor() *network.FileTransferor {
 	return master.fileTransferor
 }
 
@@ -50,7 +51,7 @@ type NodeManagerServer struct {
 type Master struct {
 	nodeManagerServer *NodeManagerServer
 
-	fileTransferor *FileTransferor
+	fileTransferor *network.FileTransferor
 
 	env          envs.Env
 	accountStore store.AccountStore
@@ -75,7 +76,7 @@ func NewMaster(config config.Config) *Master {
 
 	master = &Master{
 		nodeManagerServer: &NodeManagerServer{},
-		fileTransferor:    NewFileTransferor(),
+		fileTransferor:    network.NewFileTransferor(env),
 		env:               env,
 		accountStore:      accountStore,
 	}
