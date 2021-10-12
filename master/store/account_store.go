@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -51,9 +52,9 @@ func NewMemStore() *MemStore {
 		}
 	}
 
-	accountArray := models.AccountList{}
-	utils.GetJsonDecoder().Unmarshal(data, &accountArray)
-	for _, account := range accountArray.AccountList {
+	accountArray := make([]*models.Account, 1)
+	json.Unmarshal(data, &accountArray)
+	for _, account := range accountArray {
 		// Get the storage usage
 		account.Usage, _ = utils.DirSize(utils.GetAccountDataDir(account))
 
@@ -181,6 +182,16 @@ func NewRdbStore(config config.Config) *RdbStore {
 	return &store
 }
 
+func (store *RdbStore) AddAccount(account *models.Account) error {
+	if !store.db.First(&account, "email = ?", email).RecordNotFound(){
+		return fmt.Errorf("email %v has been registered", account.Email)
+	}
+
+	store.db.Create($account)
+
+	return nil
+}
+
 func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
 	var account models.AccountORM
 
@@ -190,4 +201,32 @@ func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
 
 	realAccount, _ := account.ToPB(context.Background())
 	return &realAccount
+}
+
+
+func (store *RdbStore) AddUsage(email string, usage int64) error {
+	account, err := store.GetAccountByEmail(email)
+	if err != nil {
+		return err
+	}
+
+	if usage != 0 {
+		store.db.models($account).Update("Usage", account.Usage + usage)
+	}
+
+	return nil
+}
+
+func (store *RdbStore) ExpandCap(email string, newCap int64) error {
+	account, err := store.GetAccountByEmail(email)
+	if err != nil {
+		return err
+	}
+	
+	old := account.Cap
+	if old != newCap {
+		store.db.models($account).Update("Usage", newCap)
+	}
+
+	return nil
 }
