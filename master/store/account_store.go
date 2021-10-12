@@ -210,7 +210,7 @@ func (store *RdbStore) AddUsage(email string, usage int64) error {
 	}
 
 	if usage != 0 {
-		store.db.models($account).Update("Usage", account.Usage + usage)
+		store.db.models(&account).Update("Usage", account.Usage + usage)
 	}
 
 	return nil
@@ -224,7 +224,7 @@ func (store *RdbStore) ExpandCap(email string, newCap int64) error {
 	
 	old := account.Cap
 	if old != newCap {
-		store.db.models($account).Update("Usage", newCap)
+		store.db.models(&account).Update("Cap", newCap)
 	}
 
 	return nil
