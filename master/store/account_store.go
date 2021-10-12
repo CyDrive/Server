@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -52,9 +51,9 @@ func NewMemStore() *MemStore {
 		}
 	}
 
-	accountArray := make([]*models.Account, 1)
-	json.Unmarshal(data, &accountArray)
-	for _, account := range accountArray {
+	accountArray := models.AccountList{}
+	utils.GetJsonDecoder().Unmarshal(data, &accountArray)
+	for _, account := range accountArray.AccountList {
 		// Get the storage usage
 		account.Usage, _ = utils.DirSize(utils.GetAccountDataDir(account))
 
@@ -150,12 +149,15 @@ func (store *MemStore) persistThread() {
 }
 
 func (store *MemStore) save() {
-	accountList := make([]*models.Account, 0, len(store.accountEmailMap))
+
+	accountList := models.AccountList{
+		AccountList: make([]*models.Account, 0, len(store.accountEmailMap)),
+	}
 	for _, account := range store.accountEmailMap {
-		accountList = append(accountList, account)
+		accountList.AccountList = append(accountList.AccountList, account)
 	}
 
-	accountListBytes, err := json.Marshal(accountList)
+	accountListBytes, err := utils.GetJsonEncoder().Marshal(&accountList)
 	if err != nil {
 		log.Error(err)
 		return

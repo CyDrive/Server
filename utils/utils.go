@@ -3,7 +3,6 @@ package utils
 import (
 	"crypto/md5"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/CyDrive/consts"
 	"github.com/CyDrive/models"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -120,7 +120,7 @@ func GetResp(resp *http.Response) *models.Response {
 		return nil
 	}
 	res := models.Response{}
-	if err = json.Unmarshal(bytes, &res); err != nil {
+	if err = GetJsonDecoder().Unmarshal(bytes, &res); err != nil {
 		return nil
 	}
 	return &res
@@ -176,4 +176,16 @@ func FilterEmptyString(strList []string) []string {
 		}
 	}
 	return res
+}
+
+func GetJsonEncoder() *protojson.MarshalOptions {
+	return &protojson.MarshalOptions{
+		UseProtoNames: true,
+	}
+}
+
+func GetJsonDecoder() *protojson.UnmarshalOptions {
+	return &protojson.UnmarshalOptions{
+		DiscardUnknown: true,
+	}
 }

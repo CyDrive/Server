@@ -29,3 +29,7 @@ message Account {
     google.protobuf.Timestamp created_at = 7;
     google.protobuf.Timestamp updated_at = 8;
 }
+
+message AccountList {
+    repeated Account account_list = 1;
+}

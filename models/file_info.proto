@@ -14,3 +14,7 @@ message FileInfo {
     bool is_dir = 4;
     bool is_compressed = 5;
 }
+
+message FileInfoList {
+    repeated FileInfo file_info_list = 1;
+}

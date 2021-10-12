@@ -16,16 +16,6 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/encoding/protojson"
-)
-
-var (
-	encoder = protojson.MarshalOptions{
-		UseProtoNames: true,
-	}
-	decoder = protojson.UnmarshalOptions{
-		DiscardUnknown: true,
-	}
 )
 
 // Account handlers
@@ -40,7 +30,7 @@ func RegisterHandle(c *gin.Context) {
 		return
 	}
 
-	err = decoder.Unmarshal(reqBytes, &req)
+	err = utils.GetJsonDecoder().Unmarshal(reqBytes, &req)
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
@@ -73,7 +63,7 @@ func RegisterHandle(c *gin.Context) {
 		return
 	}
 
-	safeAccountBytes, _ := encoder.Marshal(utils.PackSafeAccount(account))
+	safeAccountBytes, _ := utils.GetJsonEncoder().Marshal(utils.PackSafeAccount(account))
 
 	c.JSON(http.StatusOK, models.Response{
 		StatusCode: consts.StatusCode_Ok,
@@ -93,7 +83,7 @@ func LoginHandle(c *gin.Context) {
 		return
 	}
 
-	err = decoder.Unmarshal(reqBytes, &req)
+	err = utils.GetJsonDecoder().Unmarshal(reqBytes, &req)
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
@@ -136,7 +126,7 @@ func LoginHandle(c *gin.Context) {
 
 	safeAccount := utils.PackSafeAccount(account)
 
-	safeAccountBytes, err := encoder.Marshal(safeAccount)
+	safeAccountBytes, err := utils.GetJsonEncoder().Marshal(safeAccount)
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
@@ -206,7 +196,7 @@ func GetFileInfoHandle(c *gin.Context) {
 		return
 	}
 
-	fileInfoBytes, err := encoder.Marshal(fileInfo)
+	fileInfoBytes, err := utils.GetJsonEncoder().Marshal(fileInfo)
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
@@ -320,7 +310,7 @@ func DownloadHandle(c *gin.Context) {
 		FileInfo: uFileInfo,
 	}
 	log.Infof("downloadResp=%+v", resp)
-	respBytes, err := encoder.Marshal(&resp)
+	respBytes, err := utils.GetJsonEncoder().Marshal(&resp)
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
@@ -362,7 +352,7 @@ func UploadHandle(c *gin.Context) {
 	}
 
 	var req models.UploadRequest
-	if err = decoder.Unmarshal(jsonBytes, &req); err != nil {
+	if err = utils.GetJsonDecoder().Unmarshal(jsonBytes, &req); err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
 			Message:    err.Error(),
@@ -398,7 +388,7 @@ func UploadHandle(c *gin.Context) {
 		TaskId:   taskId,
 	}
 
-	respBytes, err := encoder.Marshal(&resp)
+	respBytes, err := utils.GetJsonEncoder().Marshal(&resp)
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
