@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -52,9 +51,9 @@ func NewMemStore() *MemStore {
 		}
 	}
 
-	accountArray := make([]*models.Account, 1)
-	json.Unmarshal(data, &accountArray)
-	for _, account := range accountArray {
+	accountArray := models.AccountList{}
+	utils.GetJsonDecoder().Unmarshal(data, &accountArray)
+	for _, account := range accountArray.AccountList {
 		// Get the storage usage
 		account.Usage, _ = utils.DirSize(utils.GetAccountDataDir(account))
 
