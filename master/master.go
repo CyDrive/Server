@@ -95,9 +95,9 @@ func (m *Master) Start() {
 
 	router.POST("/register", RegisterHandle)
 	router.POST("/login", LoginHandle)
-	// router.GET("/list/*path", ListHandle)
+	router.GET("/list/*path", ListHandle)
 
-	router.GET("/file_info/*path", GetFileInfoHandle)
+	// router.GET("/file_info/*path", GetFileInfoHandle)
 	// router.PUT("/file_info/*path", PutFileInfoHandle)
 
 	router.GET("/file/*path", DownloadHandle)

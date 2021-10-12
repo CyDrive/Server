@@ -1,14 +1,6 @@
-CyDrive
-test.http
 .idea
-CyDrive.exe
-client/client
-client/client.app
-client/desktop/desktop
+.vscode
 .DS_Store
-client/.DS_Store
-main
-log
 master/bin/*
 !master/bin/main.go
 !master/bin/accounts.json

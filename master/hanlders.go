@@ -142,42 +142,43 @@ func LoginHandle(c *gin.Context) {
 	})
 }
 
-// func ListHandle(c *gin.Context) {
-// 	userI, _ := c.Get("account")
-// 	account := userI.(*models.Account)
+func ListHandle(c *gin.Context) {
+	userI, _ := c.Get("account")
+	account := userI.(*models.Account)
 
-// 	path := c.Param("path")
+	path := c.Param("path")
+	path = strings.Trim(path, "/")
+	absPath := strings.Join([]string{utils.GetAccountDataDir(account), path}, "/")
 
-// 	path = strings.Trim(path, "/")
-// 	absPath := strings.Join([]string{utils.GetAccountDataDir(account), path}, "/")
+	fileList, err := GetEnv().ReadDir(absPath)
+	for i := range fileList {
+		fileList[i].FilePath = strings.ReplaceAll(fileList[i].FilePath, "\\", "/")
+		fileList[i].FilePath = strings.TrimPrefix(fileList[i].FilePath, utils.GetAccountDataDir(account))
+	}
+	if err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_IoError,
+			Message:    err.Error(),
+		})
+		return
+	}
 
-// 	fileList, err := GetEnv().ReadDir(absPath)
-// 	for i := range fileList {
-// 		fileList[i].FilePath = strings.ReplaceAll(fileList[i].FilePath, "\\", "/")
-// 		fileList[i].FilePath = strings.TrimPrefix(fileList[i].FilePath, utils.GetAccountDataDir(account))
-// 	}
-// 	if err != nil {
-// 		c.JSON(http.StatusOK, models.Response{
-// 			StatusCode: consts.StatusCode_IoError,
-// 			Message:    err.Error(),
-// 		})
-// 		return
-// 	}
-
-// 	fileListJson, err := json.Marshal(fileList)
-// 	if err != nil {
-// 		c.JSON(http.StatusOK, models.Response{
-// 			StatusCode: consts.StatusCode_InternalError,
-// 			Message:    err.Error(),
-// 		})
-// 		return
-// 	}
-// 	c.JSON(http.StatusOK, models.Response{
-// 		StatusCode: consts.StatusCode_Ok,
-// 		Message:    "list done",
-// 		Data:       string(fileListJson),
-// 	})
-// }
+	fileListJson, err := utils.GetJsonEncoder().Marshal(&models.FileInfoList{
+		FileInfoList: fileList,
+	})
+	if err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, models.Response{
+		StatusCode: consts.StatusCode_Ok,
+		Message:    "list done",
+		Data:       string(fileListJson),
+	})
+}
 
 func GetFileInfoHandle(c *gin.Context) {
 	userI, _ := c.Get("account")
@@ -372,20 +373,21 @@ func UploadHandle(c *gin.Context) {
 		return
 	}
 
-	// Change the modified time
-	if err = GetEnv().Chtimes(filePath, time.Now(), fileInfo.ModifyTime.AsTime()); err != nil {
-		c.JSON(http.StatusOK, models.Response{
-			StatusCode: consts.StatusCode_InternalError,
-			Message:    err.Error(),
-		})
-		return
-	}
-
 	taskId := GetFileTransferor().CreateTask(c.ClientIP(), fileInfo, account, consts.DataTaskType_Upload, fileInfo.Size)
 
+	offset := int64(0)
+
+	if !req.ShouldTruncate {
+		existFileInfo, err := GetEnv().Stat(filePath)
+		if err != nil {
+			offset = existFileInfo.Size
+		}
+	}
+
 	resp := models.UploadResponse{
-		NodeAddr: config.IpAddr,
+		NodeAddr: config.IpAddr + consts.FileTransferorListenPortStr,
 		TaskId:   taskId,
+		Offset:   offset,
 	}
 
 	respBytes, err := utils.GetJsonEncoder().Marshal(&resp)

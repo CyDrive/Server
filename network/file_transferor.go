@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -122,9 +121,12 @@ func (ft *FileTransferor) ProcessConn(conn *net.TCPConn) {
 	}
 
 	task.Conn = conn
-	if task.Type == consts.DataTaskType_Download {
+
+	switch task.Type {
+	case consts.DataTaskType_Download:
 		go ft.DownloadHandle(task)
-	} else {
+
+	case consts.DataTaskType_Upload:
 		go ft.UploadHandle(task)
 	}
 }
@@ -156,6 +158,7 @@ func (ft *FileTransferor) DownloadHandle(task *DataTask) {
 		}
 
 		task.HasDoneBytes += written
+		task.LastAcessTime = time.Now().Unix()
 		if task.HasDoneBytes >= task.FileInfo.Size {
 			log.Infof("task finished: task=%+v", task)
 			break
@@ -166,14 +169,20 @@ func (ft *FileTransferor) DownloadHandle(task *DataTask) {
 }
 
 func (ft *FileTransferor) UploadHandle(task *DataTask) {
-	filePath := filepath.Join(utils.GetAccountDataDir(task.Account), task.FileInfo.FilePath)
+	filePath := strings.Join([]string{utils.GetAccountDataDir(task.Account),
+		task.FileInfo.FilePath}, "/")
 
-	file, err := ft.env.OpenFile(filePath, os.O_CREATE|os.O_APPEND, 0666)
+	file, err := ft.env.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		log.Errorf("open file %+v error: %+v", filePath, err)
 		// todo: notify account by message channel
 		return
 	}
+	if err = file.Truncate(task.HasDoneBytes); err != nil {
+		log.Errorf("failed to truncated file, err=%+v, task=%+v", err, task)
+		return
+	}
+
 	defer file.Close()
 
 	for {
@@ -189,6 +198,7 @@ func (ft *FileTransferor) UploadHandle(task *DataTask) {
 		}
 
 		task.HasDoneBytes += read
+		task.LastAcessTime = time.Now().Unix()
 		if task.HasDoneBytes >= task.FileInfo.Size {
 			log.Infof("task finished: %+v", task)
 			break

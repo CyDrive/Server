@@ -40,6 +40,7 @@ message DownloadResponse {
 
 message UploadRequest {
     models.FileInfo file_info = 1;
+    bool should_truncate = 2;
 }
 
 message UploadResponse {

@@ -14,6 +14,7 @@ import (
 type FileHandle interface {
 	Stat() (*models.FileInfo, error)
 	Seek(offset int64, whence int) (int64, error)
+	Truncate(size int64) error
 	Chmod(mode os.FileMode) error
 	Close() error
 	io.Writer
@@ -43,6 +44,10 @@ func (l *LocalFile) Stat() (*models.FileInfo, error) {
 
 func (l *LocalFile) Seek(offset int64, whence int) (int64, error) {
 	return l.file.Seek(offset, whence)
+}
+
+func (l *LocalFile) Truncate(size int64) error {
+	return l.file.Truncate(size)
 }
 
 func (l *LocalFile) Chmod(mode os.FileMode) error {
