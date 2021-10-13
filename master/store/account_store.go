@@ -173,23 +173,42 @@ func (store *MemStore) save() {
 // Store users in a relational db
 type RdbStore struct {
 	db *gorm.DB
+	accountUsageCache map[string]int64
 }
 
 func NewRdbStore(config config.Config) *RdbStore {
-	store := RdbStore{}
+	store := RdbStore{accountUsageCache: make(map[string]int64)}
 	store.db, _ = gorm.Open("mysql", config.PackDSN())
+
+	go store.MinitorUsageCache(5)
 	return &store
 }
 
 func (store *RdbStore) AddAccount(account *models.Account) error {
-	if !store.db.First(&account, "email = ?", email).RecordNotFound(){
+	if store.db.Create(account).Err != nil{
 		return fmt.Errorf("email %v has been registered", account.Email)
 	}
-
-	store.db.Create(&account)
-
 	return nil
 }
+
+func (store *RdbStore) MinitorUsageCache(delay int) error {
+	for {
+		for email,usage := range store.accountUsageCache{
+			if usage == 0{
+				continue
+			}
+
+			account, err := store.GetAccountByEmail(email)
+			if err != nil {
+				return err
+			}
+			store.db.models(account).Update("Usage", account.Usage)
+		}
+
+		store.accountUsageCache := make(map[string]int64)
+		time.Sleep(delay*time.Second)
+	}
+} 
 
 func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
 	var account models.AccountORM
@@ -199,18 +218,23 @@ func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
 	}
 
 	realAccount, _ := account.ToPB(context.Background())
+	
+	usage, ok := store.accountUsageCache[email]
+	if ok {
+		realAccount.Usage += usage
+	}
+	
 	return &realAccount
 }
 
 
 func (store *RdbStore) AddUsage(email string, usage int64) error {
-	account, err := store.GetAccountByEmail(email)
-	if err != nil {
-		return err
-	}
+	_, ok := store.accountUsageCache[email]
 
-	if usage != 0 {
-		store.db.models(&account).Update("Usage", account.Usage + usage)
+	if ok {
+		store.accountUsageCache[email] += usage
+	}else{
+		store.accountUsageCache[email] = usage
 	}
 
 	return nil
@@ -224,7 +248,7 @@ func (store *RdbStore) ExpandCap(email string, newCap int64) error {
 	
 	old := account.Cap
 	if old != newCap {
-		store.db.models(&account).Update("Cap", newCap)
+		store.db.models(account).Update("Cap", newCap)
 	}
 
 	return nil
