@@ -1,7 +1,6 @@
 package envs
 
 import (
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -11,64 +10,10 @@ import (
 	"github.com/CyDrive/utils"
 )
 
-type FileHandle interface {
-	Stat() (*models.FileInfo, error)
-	Seek(offset int64, whence int) (int64, error)
-	Truncate(size int64) error
-	Chmod(mode os.FileMode) error
-	Close() error
-	io.Writer
-	io.Reader
-}
-
-type LocalFile struct {
-	path string
-	file *os.File
-}
-
-func NewLocalFile(file *os.File, path string) *LocalFile {
-	return &LocalFile{
-		path: path,
-		file: file,
-	}
-}
-
-func (l *LocalFile) Stat() (*models.FileInfo, error) {
-	inner, err := l.file.Stat()
-	if err != nil {
-		return &models.FileInfo{}, err
-	}
-
-	return utils.NewFileInfo(inner, l.path), nil
-}
-
-func (l *LocalFile) Seek(offset int64, whence int) (int64, error) {
-	return l.file.Seek(offset, whence)
-}
-
-func (l *LocalFile) Truncate(size int64) error {
-	return l.file.Truncate(size)
-}
-
-func (l *LocalFile) Chmod(mode os.FileMode) error {
-	return l.file.Chmod(mode)
-}
-
-func (l *LocalFile) Close() error {
-	return l.file.Close()
-}
-
-func (l *LocalFile) Write(p []byte) (n int, err error) {
-	return l.file.Write(p)
-}
-
-func (l *LocalFile) Read(p []byte) (n int, err error) {
-	return l.file.Read(p)
-}
-
 type Env interface {
 	Open(name string) (FileHandle, error)
 	OpenFile(name string, flag int, perm os.FileMode) (FileHandle, error)
+	RemoveAll(path string) error
 	MkdirAll(path string, perm os.FileMode) error
 	ReadDir(dirname string) ([]*models.FileInfo, error)
 	Chtimes(name string, atime time.Time, mtime time.Time) error
@@ -97,6 +42,10 @@ func (l *LocalEnv) OpenFile(name string, flag int, perm os.FileMode) (FileHandle
 	}
 
 	return NewLocalFile(file, name), nil
+}
+
+func (l *LocalEnv) RemoveAll(path string) error {
+	return os.RemoveAll(path)
 }
 
 func (l *LocalEnv) MkdirAll(path string, perm os.FileMode) error {

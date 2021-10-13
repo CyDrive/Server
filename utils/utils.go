@@ -110,6 +110,10 @@ func ReadUntilFull(reader io.Reader, buf []byte) error {
 	return nil
 }
 
+func AccountFilePath(account *models.Account, path string) string {
+	return strings.Join([]string{GetAccountDataDir(account), path}, "/")
+}
+
 func ShouldCompressed(fileInfo os.FileInfo) bool {
 	return fileInfo.Size() > consts.CompressBaseline
 }
