@@ -5,6 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 var (
@@ -20,6 +22,8 @@ type Node struct {
 	Cap               int64
 	Usage             int64
 	LastHeartBeatTime time.Time
+
+	Conn *websocket.Conn
 }
 
 func NewNode(cap, usage int64) *Node {

@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+option go_package = "github.com/CyDrive/rpc";
+
+package rpc;
+
+import "models/file_info.proto";
+
+service File {
+    rpc FileChunk(stream NodeFileChunk) returns (stream MasterFileChunk) {}
+    rpc FileInfo(stream NodeFileInfo) returns (stream MasterFileInfo) {}
+}
+
+enum FileChunkType {
+    Data = 0;
+    End = 1;
+}
+
+// three types of this:
+// 1. it's a connecting request, just all a empty request
+// 2. it's a reponse for a read request
+// 3. it's a reponse for write request, may report conflicts
+message NodeFileChunk {
+    int64 task_id = 1;      // r&w, 
+    int64 offset = 2;       // w
+    string error = 3;       // r&w
+    FileChunkType type = 4; // r
+    bytes data = 5;         // r
+}
+
+// three types of this:
+// 1. it's a connecting response, just all a empty response
+// 2. it's a read request
+// 3. it's a write request
+message MasterFileChunk {
+    int64 task_id = 1;          // r&w, first for read, continue for w
+    string file_path = 2;       // r&w, first
+    bool should_truncate = 3;   // w, first
+    bool should_append = 4;     // w, first
+
+    FileChunkType type = 5;     // w, continue
+    bytes data = 6;             // w, continue
+}
+
+message NodeFileInfo {
+    models.FileInfo file_info = 1;
+}
+
+message MasterFileInfo {
+    string file_path = 1;
+}

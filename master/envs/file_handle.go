@@ -4,8 +4,10 @@ import (
 	"io"
 	"os"
 
+	"github.com/CyDrive/master/node_manager"
 	"github.com/CyDrive/models"
 	"github.com/CyDrive/utils"
+	"github.com/gorilla/websocket"
 )
 
 type FileHandle interface {
@@ -61,4 +63,12 @@ func (l *LocalFile) Write(p []byte) (n int, err error) {
 
 func (l *LocalFile) Read(p []byte) (n int, err error) {
 	return l.file.Read(p)
+}
+
+type RemoteFile struct {
+	node *node_manager.Node
+}
+
+func (file *RemoteFile) Read(p []byte) (n int, err error) {
+	file.node.Conn.ReadMessage()
 }

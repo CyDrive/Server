@@ -6,7 +6,7 @@ package rpc;
 
 service Manage {
     rpc JoinCluster (JoinClusterRequest) returns (JoinClusterResponse) {}
-    rpc HeartBeats (HeartBeatsRequest) returns (HeartBeatsResponse) {}
+    rpc HeartBeats (stream HeartBeatsRequest) returns (stream HeartBeatsResponse) {}
 }
 
 

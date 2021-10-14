@@ -79,3 +79,10 @@ func (l *LocalEnv) Stat(name string) (*models.FileInfo, error) {
 
 	return utils.NewFileInfo(inner, name), nil
 }
+
+type RemoteEnv struct {
+}
+
+func (env *RemoteEnv) Open(name string) (FileHandle, error) {
+
+}

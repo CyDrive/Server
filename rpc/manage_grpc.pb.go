@@ -19,7 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ManageClient interface {
 	JoinCluster(ctx context.Context, in *JoinClusterRequest, opts ...grpc.CallOption) (*JoinClusterResponse, error)
-	HeartBeats(ctx context.Context, in *HeartBeatsRequest, opts ...grpc.CallOption) (*HeartBeatsResponse, error)
+	HeartBeats(ctx context.Context, opts ...grpc.CallOption) (Manage_HeartBeatsClient, error)
 }
 
 type manageClient struct {
@@ -39,13 +39,35 @@ func (c *manageClient) JoinCluster(ctx context.Context, in *JoinClusterRequest, 
 	return out, nil
 }
 
-func (c *manageClient) HeartBeats(ctx context.Context, in *HeartBeatsRequest, opts ...grpc.CallOption) (*HeartBeatsResponse, error) {
-	out := new(HeartBeatsResponse)
-	err := c.cc.Invoke(ctx, "/rpc.Manage/HeartBeats", in, out, opts...)
+func (c *manageClient) HeartBeats(ctx context.Context, opts ...grpc.CallOption) (Manage_HeartBeatsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Manage_ServiceDesc.Streams[0], "/rpc.Manage/HeartBeats", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &manageHeartBeatsClient{stream}
+	return x, nil
+}
+
+type Manage_HeartBeatsClient interface {
+	Send(*HeartBeatsRequest) error
+	Recv() (*HeartBeatsResponse, error)
+	grpc.ClientStream
+}
+
+type manageHeartBeatsClient struct {
+	grpc.ClientStream
+}
+
+func (x *manageHeartBeatsClient) Send(m *HeartBeatsRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *manageHeartBeatsClient) Recv() (*HeartBeatsResponse, error) {
+	m := new(HeartBeatsResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // ManageServer is the server API for Manage service.
@@ -53,7 +75,7 @@ func (c *manageClient) HeartBeats(ctx context.Context, in *HeartBeatsRequest, op
 // for forward compatibility
 type ManageServer interface {
 	JoinCluster(context.Context, *JoinClusterRequest) (*JoinClusterResponse, error)
-	HeartBeats(context.Context, *HeartBeatsRequest) (*HeartBeatsResponse, error)
+	HeartBeats(Manage_HeartBeatsServer) error
 	mustEmbedUnimplementedManageServer()
 }
 
@@ -64,8 +86,8 @@ type UnimplementedManageServer struct {
 func (UnimplementedManageServer) JoinCluster(context.Context, *JoinClusterRequest) (*JoinClusterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method JoinCluster not implemented")
 }
-func (UnimplementedManageServer) HeartBeats(context.Context, *HeartBeatsRequest) (*HeartBeatsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method HeartBeats not implemented")
+func (UnimplementedManageServer) HeartBeats(Manage_HeartBeatsServer) error {
+	return status.Errorf(codes.Unimplemented, "method HeartBeats not implemented")
 }
 func (UnimplementedManageServer) mustEmbedUnimplementedManageServer() {}
 
@@ -98,22 +120,30 @@ func _Manage_JoinCluster_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Manage_HeartBeats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(HeartBeatsRequest)
-	if err := dec(in); err != nil {
+func _Manage_HeartBeats_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ManageServer).HeartBeats(&manageHeartBeatsServer{stream})
+}
+
+type Manage_HeartBeatsServer interface {
+	Send(*HeartBeatsResponse) error
+	Recv() (*HeartBeatsRequest, error)
+	grpc.ServerStream
+}
+
+type manageHeartBeatsServer struct {
+	grpc.ServerStream
+}
+
+func (x *manageHeartBeatsServer) Send(m *HeartBeatsResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *manageHeartBeatsServer) Recv() (*HeartBeatsRequest, error) {
+	m := new(HeartBeatsRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
-	if interceptor == nil {
-		return srv.(ManageServer).HeartBeats(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/rpc.Manage/HeartBeats",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManageServer).HeartBeats(ctx, req.(*HeartBeatsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return m, nil
 }
 
 // Manage_ServiceDesc is the grpc.ServiceDesc for Manage service.
@@ -127,11 +157,14 @@ var Manage_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "JoinCluster",
 			Handler:    _Manage_JoinCluster_Handler,
 		},
+	},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "HeartBeats",
-			Handler:    _Manage_HeartBeats_Handler,
+			StreamName:    "HeartBeats",
+			Handler:       _Manage_HeartBeats_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "rpc/manage.proto",
 }

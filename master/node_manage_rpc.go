@@ -11,7 +11,6 @@ import (
 
 func (s *NodeManagerServer) JoinCluster(ctx context.Context, req *rpc.JoinClusterRequest) (*rpc.JoinClusterResponse, error) {
 	nodeManager := node_manager.GetNodeManager()
-
 	node := node_manager.NewNode(req.Capacity, req.Usage)
 
 	nodeManager.AddNode(node)
