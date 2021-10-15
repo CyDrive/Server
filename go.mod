@@ -8,7 +8,6 @@ require (
 	github.com/go-playground/validator/v10 v10.9.0 // indirect
 	github.com/golang/protobuf v1.5.2
 	github.com/gorilla/sessions v1.2.0 // indirect
-	github.com/gorilla/websocket v1.4.2
 	github.com/infobloxopen/atlas-app-toolkit v1.1.1
 	github.com/infobloxopen/protoc-gen-gorm v1.0.1
 	github.com/jinzhu/gorm v1.9.16

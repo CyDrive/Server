@@ -14,187 +14,184 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// FileClient is the client API for File service.
+// FileStreamClient is the client API for FileStream service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type FileClient interface {
-	FileChunk(ctx context.Context, opts ...grpc.CallOption) (File_FileChunkClient, error)
-	FileInfo(ctx context.Context, opts ...grpc.CallOption) (File_FileInfoClient, error)
+type FileStreamClient interface {
+	SendFile(ctx context.Context, opts ...grpc.CallOption) (FileStream_SendFileClient, error)
+	RecvFile(ctx context.Context, in *RecvFileRequest, opts ...grpc.CallOption) (FileStream_RecvFileClient, error)
 }
 
-type fileClient struct {
+type fileStreamClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewFileClient(cc grpc.ClientConnInterface) FileClient {
-	return &fileClient{cc}
+func NewFileStreamClient(cc grpc.ClientConnInterface) FileStreamClient {
+	return &fileStreamClient{cc}
 }
 
-func (c *fileClient) FileChunk(ctx context.Context, opts ...grpc.CallOption) (File_FileChunkClient, error) {
-	stream, err := c.cc.NewStream(ctx, &File_ServiceDesc.Streams[0], "/rpc.File/FileChunk", opts...)
+func (c *fileStreamClient) SendFile(ctx context.Context, opts ...grpc.CallOption) (FileStream_SendFileClient, error) {
+	stream, err := c.cc.NewStream(ctx, &FileStream_ServiceDesc.Streams[0], "/rpc.FileStream/SendFile", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &fileFileChunkClient{stream}
+	x := &fileStreamSendFileClient{stream}
 	return x, nil
 }
 
-type File_FileChunkClient interface {
-	Send(*NodeFileChunk) error
-	Recv() (*MasterFileChunk, error)
+type FileStream_SendFileClient interface {
+	Send(*SendFileChunkRequest) error
+	CloseAndRecv() (*SendFileResponse, error)
 	grpc.ClientStream
 }
 
-type fileFileChunkClient struct {
+type fileStreamSendFileClient struct {
 	grpc.ClientStream
 }
 
-func (x *fileFileChunkClient) Send(m *NodeFileChunk) error {
+func (x *fileStreamSendFileClient) Send(m *SendFileChunkRequest) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *fileFileChunkClient) Recv() (*MasterFileChunk, error) {
-	m := new(MasterFileChunk)
+func (x *fileStreamSendFileClient) CloseAndRecv() (*SendFileResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(SendFileResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func (c *fileClient) FileInfo(ctx context.Context, opts ...grpc.CallOption) (File_FileInfoClient, error) {
-	stream, err := c.cc.NewStream(ctx, &File_ServiceDesc.Streams[1], "/rpc.File/FileInfo", opts...)
+func (c *fileStreamClient) RecvFile(ctx context.Context, in *RecvFileRequest, opts ...grpc.CallOption) (FileStream_RecvFileClient, error) {
+	stream, err := c.cc.NewStream(ctx, &FileStream_ServiceDesc.Streams[1], "/rpc.FileStream/RecvFile", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &fileFileInfoClient{stream}
+	x := &fileStreamRecvFileClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
 	return x, nil
 }
 
-type File_FileInfoClient interface {
-	Send(*NodeFileInfo) error
-	Recv() (*MasterFileInfo, error)
+type FileStream_RecvFileClient interface {
+	Recv() (*RecvFileChunkResponse, error)
 	grpc.ClientStream
 }
 
-type fileFileInfoClient struct {
+type fileStreamRecvFileClient struct {
 	grpc.ClientStream
 }
 
-func (x *fileFileInfoClient) Send(m *NodeFileInfo) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *fileFileInfoClient) Recv() (*MasterFileInfo, error) {
-	m := new(MasterFileInfo)
+func (x *fileStreamRecvFileClient) Recv() (*RecvFileChunkResponse, error) {
+	m := new(RecvFileChunkResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-// FileServer is the server API for File service.
-// All implementations must embed UnimplementedFileServer
+// FileStreamServer is the server API for FileStream service.
+// All implementations must embed UnimplementedFileStreamServer
 // for forward compatibility
-type FileServer interface {
-	FileChunk(File_FileChunkServer) error
-	FileInfo(File_FileInfoServer) error
-	mustEmbedUnimplementedFileServer()
+type FileStreamServer interface {
+	SendFile(FileStream_SendFileServer) error
+	RecvFile(*RecvFileRequest, FileStream_RecvFileServer) error
+	mustEmbedUnimplementedFileStreamServer()
 }
 
-// UnimplementedFileServer must be embedded to have forward compatible implementations.
-type UnimplementedFileServer struct {
+// UnimplementedFileStreamServer must be embedded to have forward compatible implementations.
+type UnimplementedFileStreamServer struct {
 }
 
-func (UnimplementedFileServer) FileChunk(File_FileChunkServer) error {
-	return status.Errorf(codes.Unimplemented, "method FileChunk not implemented")
+func (UnimplementedFileStreamServer) SendFile(FileStream_SendFileServer) error {
+	return status.Errorf(codes.Unimplemented, "method SendFile not implemented")
 }
-func (UnimplementedFileServer) FileInfo(File_FileInfoServer) error {
-	return status.Errorf(codes.Unimplemented, "method FileInfo not implemented")
+func (UnimplementedFileStreamServer) RecvFile(*RecvFileRequest, FileStream_RecvFileServer) error {
+	return status.Errorf(codes.Unimplemented, "method RecvFile not implemented")
 }
-func (UnimplementedFileServer) mustEmbedUnimplementedFileServer() {}
+func (UnimplementedFileStreamServer) mustEmbedUnimplementedFileStreamServer() {}
 
-// UnsafeFileServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to FileServer will
+// UnsafeFileStreamServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to FileStreamServer will
 // result in compilation errors.
-type UnsafeFileServer interface {
-	mustEmbedUnimplementedFileServer()
+type UnsafeFileStreamServer interface {
+	mustEmbedUnimplementedFileStreamServer()
 }
 
-func RegisterFileServer(s grpc.ServiceRegistrar, srv FileServer) {
-	s.RegisterService(&File_ServiceDesc, srv)
+func RegisterFileStreamServer(s grpc.ServiceRegistrar, srv FileStreamServer) {
+	s.RegisterService(&FileStream_ServiceDesc, srv)
 }
 
-func _File_FileChunk_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(FileServer).FileChunk(&fileFileChunkServer{stream})
+func _FileStream_SendFile_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(FileStreamServer).SendFile(&fileStreamSendFileServer{stream})
 }
 
-type File_FileChunkServer interface {
-	Send(*MasterFileChunk) error
-	Recv() (*NodeFileChunk, error)
+type FileStream_SendFileServer interface {
+	SendAndClose(*SendFileResponse) error
+	Recv() (*SendFileChunkRequest, error)
 	grpc.ServerStream
 }
 
-type fileFileChunkServer struct {
+type fileStreamSendFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *fileFileChunkServer) Send(m *MasterFileChunk) error {
+func (x *fileStreamSendFileServer) SendAndClose(m *SendFileResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *fileFileChunkServer) Recv() (*NodeFileChunk, error) {
-	m := new(NodeFileChunk)
+func (x *fileStreamSendFileServer) Recv() (*SendFileChunkRequest, error) {
+	m := new(SendFileChunkRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func _File_FileInfo_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(FileServer).FileInfo(&fileFileInfoServer{stream})
+func _FileStream_RecvFile_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(RecvFileRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(FileStreamServer).RecvFile(m, &fileStreamRecvFileServer{stream})
 }
 
-type File_FileInfoServer interface {
-	Send(*MasterFileInfo) error
-	Recv() (*NodeFileInfo, error)
+type FileStream_RecvFileServer interface {
+	Send(*RecvFileChunkResponse) error
 	grpc.ServerStream
 }
 
-type fileFileInfoServer struct {
+type fileStreamRecvFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *fileFileInfoServer) Send(m *MasterFileInfo) error {
+func (x *fileStreamRecvFileServer) Send(m *RecvFileChunkResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *fileFileInfoServer) Recv() (*NodeFileInfo, error) {
-	m := new(NodeFileInfo)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// File_ServiceDesc is the grpc.ServiceDesc for File service.
+// FileStream_ServiceDesc is the grpc.ServiceDesc for FileStream service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var File_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "rpc.File",
-	HandlerType: (*FileServer)(nil),
+var FileStream_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "rpc.FileStream",
+	HandlerType: (*FileStreamServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "FileChunk",
-			Handler:       _File_FileChunk_Handler,
-			ServerStreams: true,
+			StreamName:    "SendFile",
+			Handler:       _FileStream_SendFile_Handler,
 			ClientStreams: true,
 		},
 		{
-			StreamName:    "FileInfo",
-			Handler:       _File_FileInfo_Handler,
+			StreamName:    "RecvFile",
+			Handler:       _FileStream_RecvFile_Handler,
 			ServerStreams: true,
-			ClientStreams: true,
 		},
 	},
 	Metadata: "rpc/file_stream.proto",

@@ -8,7 +8,9 @@
 在这个设计中，我们假设 Master 是可靠的。
 
 ## Private Storage Node
-这里主要描述流量经过 Master 的设计，我们用 gRPC 建立双向流来让 storage node 和 Master 交换数据：
+这里主要描述流量经过 Master 的设计，我们用一个 server-side streaming RPC 来实现通知和对 Node 的主动管理。例如修改 Node 的状态，通知 Node 发送/接收文件等。Node 收到通知后，建立相应的连接来进行数据传输。没有采用双向流是因为这样我们不需要一直维护大量的长连接，而且可以每个传输任务使用单独的连接，让它们之间不相互影响。另一个原因就是这样的代码可维护性会更高。
+
+### Notifier
 
 ### File
 对于读写文件的情况，Master 作为主动方，向 storag node 发出读写请求，我们定义下面的 message 作为 Master 发出的请求：

@@ -1,12 +1,14 @@
 package node_manager
 
 import (
+	"fmt"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"github.com/CyDrive/models"
+	"github.com/CyDrive/rpc"
 )
 
 var (
@@ -20,18 +22,21 @@ func GenId() int32 {
 type Node struct {
 	Id                int32
 	Cap               int64
+	AssignedVolumn    int64
 	Usage             int64
 	LastHeartBeatTime time.Time
 
-	Conn *websocket.Conn
+	NotifyChan chan interface{}
 }
 
 func NewNode(cap, usage int64) *Node {
 	return &Node{
 		Id:                GenId(),
 		Cap:               cap,
+		AssignedVolumn:    0,
 		Usage:             usage,
 		LastHeartBeatTime: time.Now(),
+		NotifyChan:        make(chan interface{}, 100),
 	}
 }
 
@@ -76,23 +81,19 @@ const (
 )
 
 type NodeManager struct {
-	nodeMap *sync.Map
-	nodeNum int32
+	nodeMap        *sync.Map
+	accountNodeMap *sync.Map // map: accountId -> node
+	nodeNum        int32
 }
-
-var nodeManager *NodeManager = NewNodeManager()
 
 func NewNodeManager() *NodeManager {
 	nodeManager := NodeManager{
-		nodeMap: &sync.Map{},
-		nodeNum: 0,
+		nodeMap:        &sync.Map{},
+		accountNodeMap: &sync.Map{},
+		nodeNum:        0,
 	}
 
 	return &nodeManager
-}
-
-func GetNodeManager() *NodeManager {
-	return nodeManager
 }
 
 func (nm *NodeManager) AddNode(node *Node) {
@@ -107,6 +108,15 @@ func (nm *NodeManager) GetNode(id int32) *Node {
 	}
 
 	return value.(*Node)
+}
+
+func (nm *NodeManager) GetNodeByAccountId(accountId int32) *Node {
+	nodeI, ok := nm.accountNodeMap.Load(accountId)
+	if !ok {
+		return nil
+	}
+
+	return nodeI.(*Node)
 }
 
 func (nm *NodeManager) DropNode(node *Node) {
@@ -127,6 +137,47 @@ func (nm *NodeManager) NodeHealthMaintenance() {
 	// 	}
 
 	// }
+}
+
+func (nm *NodeManager) CreateSendFileTask(accountId int32, req *rpc.CreateSendFileTaskNotify) error {
+	nodeI, ok := nm.accountNodeMap.Load(accountId)
+	if !ok {
+		return fmt.Errorf("no such file")
+	}
+
+	node := nodeI.(*Node)
+	node.NotifyChan <- req
+
+	return nil
+}
+
+func (nm *NodeManager) CreateRecvFileTask(account *models.Account, req *rpc.CreateRecvFileTaskNotify) error {
+	nodeI, ok := nm.accountNodeMap.Load(account.Id)
+	var node *Node
+	if !ok {
+		// Assign a node to serve the account
+		node = nm.PickNode()
+		if node == nil {
+			return fmt.Errorf("No node to serve!")
+		}
+		atomic.AddInt64(&node.AssignedVolumn, account.Cap)
+		nm.accountNodeMap.Store(account.Id, node)
+	} else {
+		node = nodeI.(*Node)
+	}
+
+	node.NotifyChan <- req
+	return nil
+}
+
+func (nm *NodeManager) GetNotifyChan(nodeId int32) (<-chan interface{}, bool) {
+	nodeI, ok := nm.nodeMap.Load(nodeId)
+	if !ok {
+		return nil, false
+	}
+
+	node := nodeI.(*Node)
+	return node.NotifyChan, true
 }
 
 // return: the first num nodes with highest (cap - usage)

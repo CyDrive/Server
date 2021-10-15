@@ -30,4 +30,8 @@ const (
 	DataTaskType_Download DataTaskType = iota
 	DataTaskType_Upload
 	DataTaskExpireTime int64 = 30 * 60
+
+	RemoteFileHandleBufferSize = 4 * 1024 * 1024
+
+	O_NeedFileInfo = 2048
 )

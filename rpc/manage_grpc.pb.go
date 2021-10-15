@@ -19,7 +19,8 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ManageClient interface {
 	JoinCluster(ctx context.Context, in *JoinClusterRequest, opts ...grpc.CallOption) (*JoinClusterResponse, error)
-	HeartBeats(ctx context.Context, opts ...grpc.CallOption) (Manage_HeartBeatsClient, error)
+	HeartBeats(ctx context.Context, in *HeartBeatsRequest, opts ...grpc.CallOption) (*HeartBeatsResponse, error)
+	Notifier(ctx context.Context, in *ConnectNotifierRequest, opts ...grpc.CallOption) (Manage_NotifierClient, error)
 }
 
 type manageClient struct {
@@ -39,31 +40,41 @@ func (c *manageClient) JoinCluster(ctx context.Context, in *JoinClusterRequest, 
 	return out, nil
 }
 
-func (c *manageClient) HeartBeats(ctx context.Context, opts ...grpc.CallOption) (Manage_HeartBeatsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Manage_ServiceDesc.Streams[0], "/rpc.Manage/HeartBeats", opts...)
+func (c *manageClient) HeartBeats(ctx context.Context, in *HeartBeatsRequest, opts ...grpc.CallOption) (*HeartBeatsResponse, error) {
+	out := new(HeartBeatsResponse)
+	err := c.cc.Invoke(ctx, "/rpc.Manage/HeartBeats", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &manageHeartBeatsClient{stream}
+	return out, nil
+}
+
+func (c *manageClient) Notifier(ctx context.Context, in *ConnectNotifierRequest, opts ...grpc.CallOption) (Manage_NotifierClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Manage_ServiceDesc.Streams[0], "/rpc.Manage/Notifier", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &manageNotifierClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
 	return x, nil
 }
 
-type Manage_HeartBeatsClient interface {
-	Send(*HeartBeatsRequest) error
-	Recv() (*HeartBeatsResponse, error)
+type Manage_NotifierClient interface {
+	Recv() (*Notify, error)
 	grpc.ClientStream
 }
 
-type manageHeartBeatsClient struct {
+type manageNotifierClient struct {
 	grpc.ClientStream
 }
 
-func (x *manageHeartBeatsClient) Send(m *HeartBeatsRequest) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *manageHeartBeatsClient) Recv() (*HeartBeatsResponse, error) {
-	m := new(HeartBeatsResponse)
+func (x *manageNotifierClient) Recv() (*Notify, error) {
+	m := new(Notify)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -75,7 +86,8 @@ func (x *manageHeartBeatsClient) Recv() (*HeartBeatsResponse, error) {
 // for forward compatibility
 type ManageServer interface {
 	JoinCluster(context.Context, *JoinClusterRequest) (*JoinClusterResponse, error)
-	HeartBeats(Manage_HeartBeatsServer) error
+	HeartBeats(context.Context, *HeartBeatsRequest) (*HeartBeatsResponse, error)
+	Notifier(*ConnectNotifierRequest, Manage_NotifierServer) error
 	mustEmbedUnimplementedManageServer()
 }
 
@@ -86,8 +98,11 @@ type UnimplementedManageServer struct {
 func (UnimplementedManageServer) JoinCluster(context.Context, *JoinClusterRequest) (*JoinClusterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method JoinCluster not implemented")
 }
-func (UnimplementedManageServer) HeartBeats(Manage_HeartBeatsServer) error {
-	return status.Errorf(codes.Unimplemented, "method HeartBeats not implemented")
+func (UnimplementedManageServer) HeartBeats(context.Context, *HeartBeatsRequest) (*HeartBeatsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HeartBeats not implemented")
+}
+func (UnimplementedManageServer) Notifier(*ConnectNotifierRequest, Manage_NotifierServer) error {
+	return status.Errorf(codes.Unimplemented, "method Notifier not implemented")
 }
 func (UnimplementedManageServer) mustEmbedUnimplementedManageServer() {}
 
@@ -120,30 +135,43 @@ func _Manage_JoinCluster_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Manage_HeartBeats_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(ManageServer).HeartBeats(&manageHeartBeatsServer{stream})
-}
-
-type Manage_HeartBeatsServer interface {
-	Send(*HeartBeatsResponse) error
-	Recv() (*HeartBeatsRequest, error)
-	grpc.ServerStream
-}
-
-type manageHeartBeatsServer struct {
-	grpc.ServerStream
-}
-
-func (x *manageHeartBeatsServer) Send(m *HeartBeatsResponse) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *manageHeartBeatsServer) Recv() (*HeartBeatsRequest, error) {
-	m := new(HeartBeatsRequest)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
+func _Manage_HeartBeats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HeartBeatsRequest)
+	if err := dec(in); err != nil {
 		return nil, err
 	}
-	return m, nil
+	if interceptor == nil {
+		return srv.(ManageServer).HeartBeats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpc.Manage/HeartBeats",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManageServer).HeartBeats(ctx, req.(*HeartBeatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Manage_Notifier_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ConnectNotifierRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ManageServer).Notifier(m, &manageNotifierServer{stream})
+}
+
+type Manage_NotifierServer interface {
+	Send(*Notify) error
+	grpc.ServerStream
+}
+
+type manageNotifierServer struct {
+	grpc.ServerStream
+}
+
+func (x *manageNotifierServer) Send(m *Notify) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 // Manage_ServiceDesc is the grpc.ServiceDesc for Manage service.
@@ -157,13 +185,16 @@ var Manage_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "JoinCluster",
 			Handler:    _Manage_JoinCluster_Handler,
 		},
+		{
+			MethodName: "HeartBeats",
+			Handler:    _Manage_HeartBeats_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "HeartBeats",
-			Handler:       _Manage_HeartBeats_Handler,
+			StreamName:    "Notifier",
+			Handler:       _Manage_Notifier_Handler,
 			ServerStreams: true,
-			ClientStreams: true,
 		},
 	},
 	Metadata: "rpc/manage.proto",

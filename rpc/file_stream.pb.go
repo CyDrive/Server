@@ -21,70 +21,19 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type FileChunkType int32
-
-const (
-	FileChunkType_Data FileChunkType = 0
-	FileChunkType_End  FileChunkType = 1
-)
-
-// Enum value maps for FileChunkType.
-var (
-	FileChunkType_name = map[int32]string{
-		0: "Data",
-		1: "End",
-	}
-	FileChunkType_value = map[string]int32{
-		"Data": 0,
-		"End":  1,
-	}
-)
-
-func (x FileChunkType) Enum() *FileChunkType {
-	p := new(FileChunkType)
-	*p = x
-	return p
-}
-
-func (x FileChunkType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (FileChunkType) Descriptor() protoreflect.EnumDescriptor {
-	return file_rpc_file_stream_proto_enumTypes[0].Descriptor()
-}
-
-func (FileChunkType) Type() protoreflect.EnumType {
-	return &file_rpc_file_stream_proto_enumTypes[0]
-}
-
-func (x FileChunkType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use FileChunkType.Descriptor instead.
-func (FileChunkType) EnumDescriptor() ([]byte, []int) {
-	return file_rpc_file_stream_proto_rawDescGZIP(), []int{0}
-}
-
-// three types of this:
-// 1. it's a connecting request, just all a empty request
-// 2. it's a reponse for a read request
-// 3. it's a reponse for write request, may report conflicts
-type NodeFileChunk struct {
+type SendFileChunkRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	TaskId int64         `protobuf:"varint,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`      // r&w,
-	Offset int64         `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`                    // w
-	Error  string        `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`                       // r&w
-	Type   FileChunkType `protobuf:"varint,4,opt,name=type,proto3,enum=rpc.FileChunkType" json:"type,omitempty"` // r
-	Data   []byte        `protobuf:"bytes,5,opt,name=data,proto3" json:"data,omitempty"`                         // r
+	TaskId   int64            `protobuf:"varint,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`      // first
+	FileInfo *models.FileInfo `protobuf:"bytes,2,opt,name=file_info,json=fileInfo,proto3" json:"file_info,omitempty"` // none of first
+	Error    string           `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`                       // last
+	Data     []byte           `protobuf:"bytes,4,opt,name=data,proto3" json:"data,omitempty"`                         // all
 }
 
-func (x *NodeFileChunk) Reset() {
-	*x = NodeFileChunk{}
+func (x *SendFileChunkRequest) Reset() {
+	*x = SendFileChunkRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_rpc_file_stream_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -92,13 +41,13 @@ func (x *NodeFileChunk) Reset() {
 	}
 }
 
-func (x *NodeFileChunk) String() string {
+func (x *SendFileChunkRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*NodeFileChunk) ProtoMessage() {}
+func (*SendFileChunkRequest) ProtoMessage() {}
 
-func (x *NodeFileChunk) ProtoReflect() protoreflect.Message {
+func (x *SendFileChunkRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_rpc_file_stream_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -110,65 +59,47 @@ func (x *NodeFileChunk) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use NodeFileChunk.ProtoReflect.Descriptor instead.
-func (*NodeFileChunk) Descriptor() ([]byte, []int) {
+// Deprecated: Use SendFileChunkRequest.ProtoReflect.Descriptor instead.
+func (*SendFileChunkRequest) Descriptor() ([]byte, []int) {
 	return file_rpc_file_stream_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *NodeFileChunk) GetTaskId() int64 {
+func (x *SendFileChunkRequest) GetTaskId() int64 {
 	if x != nil {
 		return x.TaskId
 	}
 	return 0
 }
 
-func (x *NodeFileChunk) GetOffset() int64 {
+func (x *SendFileChunkRequest) GetFileInfo() *models.FileInfo {
 	if x != nil {
-		return x.Offset
+		return x.FileInfo
 	}
-	return 0
+	return nil
 }
 
-func (x *NodeFileChunk) GetError() string {
+func (x *SendFileChunkRequest) GetError() string {
 	if x != nil {
 		return x.Error
 	}
 	return ""
 }
 
-func (x *NodeFileChunk) GetType() FileChunkType {
-	if x != nil {
-		return x.Type
-	}
-	return FileChunkType_Data
-}
-
-func (x *NodeFileChunk) GetData() []byte {
+func (x *SendFileChunkRequest) GetData() []byte {
 	if x != nil {
 		return x.Data
 	}
 	return nil
 }
 
-// three types of this:
-// 1. it's a connecting response, just all a empty response
-// 2. it's a read request
-// 3. it's a write request
-type MasterFileChunk struct {
+type SendFileResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
-
-	TaskId         int64         `protobuf:"varint,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`                         // r&w, first for read, continue for w
-	FilePath       string        `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`                    // r&w, first
-	ShouldTruncate bool          `protobuf:"varint,3,opt,name=should_truncate,json=shouldTruncate,proto3" json:"should_truncate,omitempty"` // w, first
-	ShouldAppend   bool          `protobuf:"varint,4,opt,name=should_append,json=shouldAppend,proto3" json:"should_append,omitempty"`       // w, first
-	Type           FileChunkType `protobuf:"varint,5,opt,name=type,proto3,enum=rpc.FileChunkType" json:"type,omitempty"`                    // w, continue
-	Data           []byte        `protobuf:"bytes,6,opt,name=data,proto3" json:"data,omitempty"`                                            // w, continue
 }
 
-func (x *MasterFileChunk) Reset() {
-	*x = MasterFileChunk{}
+func (x *SendFileResponse) Reset() {
+	*x = SendFileResponse{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_rpc_file_stream_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -176,13 +107,13 @@ func (x *MasterFileChunk) Reset() {
 	}
 }
 
-func (x *MasterFileChunk) String() string {
+func (x *SendFileResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*MasterFileChunk) ProtoMessage() {}
+func (*SendFileResponse) ProtoMessage() {}
 
-func (x *MasterFileChunk) ProtoReflect() protoreflect.Message {
+func (x *SendFileResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_rpc_file_stream_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -194,63 +125,22 @@ func (x *MasterFileChunk) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use MasterFileChunk.ProtoReflect.Descriptor instead.
-func (*MasterFileChunk) Descriptor() ([]byte, []int) {
+// Deprecated: Use SendFileResponse.ProtoReflect.Descriptor instead.
+func (*SendFileResponse) Descriptor() ([]byte, []int) {
 	return file_rpc_file_stream_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *MasterFileChunk) GetTaskId() int64 {
-	if x != nil {
-		return x.TaskId
-	}
-	return 0
-}
-
-func (x *MasterFileChunk) GetFilePath() string {
-	if x != nil {
-		return x.FilePath
-	}
-	return ""
-}
-
-func (x *MasterFileChunk) GetShouldTruncate() bool {
-	if x != nil {
-		return x.ShouldTruncate
-	}
-	return false
-}
-
-func (x *MasterFileChunk) GetShouldAppend() bool {
-	if x != nil {
-		return x.ShouldAppend
-	}
-	return false
-}
-
-func (x *MasterFileChunk) GetType() FileChunkType {
-	if x != nil {
-		return x.Type
-	}
-	return FileChunkType_Data
-}
-
-func (x *MasterFileChunk) GetData() []byte {
-	if x != nil {
-		return x.Data
-	}
-	return nil
-}
-
-type NodeFileInfo struct {
+type RecvFileRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	FileInfo *models.FileInfo `protobuf:"bytes,1,opt,name=file_info,json=fileInfo,proto3" json:"file_info,omitempty"`
+	TaskId int64  `protobuf:"varint,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Error  string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 }
 
-func (x *NodeFileInfo) Reset() {
-	*x = NodeFileInfo{}
+func (x *RecvFileRequest) Reset() {
+	*x = RecvFileRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_rpc_file_stream_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -258,13 +148,13 @@ func (x *NodeFileInfo) Reset() {
 	}
 }
 
-func (x *NodeFileInfo) String() string {
+func (x *RecvFileRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*NodeFileInfo) ProtoMessage() {}
+func (*RecvFileRequest) ProtoMessage() {}
 
-func (x *NodeFileInfo) ProtoReflect() protoreflect.Message {
+func (x *RecvFileRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_rpc_file_stream_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -276,28 +166,36 @@ func (x *NodeFileInfo) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use NodeFileInfo.ProtoReflect.Descriptor instead.
-func (*NodeFileInfo) Descriptor() ([]byte, []int) {
+// Deprecated: Use RecvFileRequest.ProtoReflect.Descriptor instead.
+func (*RecvFileRequest) Descriptor() ([]byte, []int) {
 	return file_rpc_file_stream_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *NodeFileInfo) GetFileInfo() *models.FileInfo {
+func (x *RecvFileRequest) GetTaskId() int64 {
 	if x != nil {
-		return x.FileInfo
+		return x.TaskId
 	}
-	return nil
+	return 0
 }
 
-type MasterFileInfo struct {
+func (x *RecvFileRequest) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type RecvFileChunkResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	FilePath string `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	TaskId int64  `protobuf:"varint,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Data   []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 }
 
-func (x *MasterFileInfo) Reset() {
-	*x = MasterFileInfo{}
+func (x *RecvFileChunkResponse) Reset() {
+	*x = RecvFileChunkResponse{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_rpc_file_stream_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -305,13 +203,13 @@ func (x *MasterFileInfo) Reset() {
 	}
 }
 
-func (x *MasterFileInfo) String() string {
+func (x *RecvFileChunkResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*MasterFileInfo) ProtoMessage() {}
+func (*RecvFileChunkResponse) ProtoMessage() {}
 
-func (x *MasterFileInfo) ProtoReflect() protoreflect.Message {
+func (x *RecvFileChunkResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_rpc_file_stream_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -323,16 +221,23 @@ func (x *MasterFileInfo) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use MasterFileInfo.ProtoReflect.Descriptor instead.
-func (*MasterFileInfo) Descriptor() ([]byte, []int) {
+// Deprecated: Use RecvFileChunkResponse.ProtoReflect.Descriptor instead.
+func (*RecvFileChunkResponse) Descriptor() ([]byte, []int) {
 	return file_rpc_file_stream_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *MasterFileInfo) GetFilePath() string {
+func (x *RecvFileChunkResponse) GetTaskId() int64 {
 	if x != nil {
-		return x.FilePath
+		return x.TaskId
 	}
-	return ""
+	return 0
+}
+
+func (x *RecvFileChunkResponse) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
 }
 
 var File_rpc_file_stream_proto protoreflect.FileDescriptor
@@ -341,46 +246,34 @@ var file_rpc_file_stream_proto_rawDesc = []byte{
 	0x0a, 0x15, 0x72, 0x70, 0x63, 0x2f, 0x66, 0x69, 0x6c, 0x65, 0x5f, 0x73, 0x74, 0x72, 0x65, 0x61,
 	0x6d, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x03, 0x72, 0x70, 0x63, 0x1a, 0x16, 0x6d, 0x6f,
 	0x64, 0x65, 0x6c, 0x73, 0x2f, 0x66, 0x69, 0x6c, 0x65, 0x5f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x22, 0x92, 0x01, 0x0a, 0x0d, 0x4e, 0x6f, 0x64, 0x65, 0x46, 0x69, 0x6c,
-	0x65, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x12, 0x17, 0x0a, 0x07, 0x74, 0x61, 0x73, 0x6b, 0x5f, 0x69,
-	0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x06, 0x74, 0x61, 0x73, 0x6b, 0x49, 0x64, 0x12,
-	0x16, 0x0a, 0x06, 0x6f, 0x66, 0x66, 0x73, 0x65, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52,
-	0x06, 0x6f, 0x66, 0x66, 0x73, 0x65, 0x74, 0x12, 0x14, 0x0a, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72,
-	0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x12, 0x26, 0x0a,
-	0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x12, 0x2e, 0x72, 0x70,
-	0x63, 0x2e, 0x46, 0x69, 0x6c, 0x65, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x54, 0x79, 0x70, 0x65, 0x52,
-	0x04, 0x74, 0x79, 0x70, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x05, 0x20,
-	0x01, 0x28, 0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x22, 0xd1, 0x01, 0x0a, 0x0f, 0x4d, 0x61,
-	0x73, 0x74, 0x65, 0x72, 0x46, 0x69, 0x6c, 0x65, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x12, 0x17, 0x0a,
+	0x72, 0x6f, 0x74, 0x6f, 0x22, 0x88, 0x01, 0x0a, 0x14, 0x53, 0x65, 0x6e, 0x64, 0x46, 0x69, 0x6c,
+	0x65, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x17, 0x0a,
 	0x07, 0x74, 0x61, 0x73, 0x6b, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x06,
-	0x74, 0x61, 0x73, 0x6b, 0x49, 0x64, 0x12, 0x1b, 0x0a, 0x09, 0x66, 0x69, 0x6c, 0x65, 0x5f, 0x70,
-	0x61, 0x74, 0x68, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x50,
-	0x61, 0x74, 0x68, 0x12, 0x27, 0x0a, 0x0f, 0x73, 0x68, 0x6f, 0x75, 0x6c, 0x64, 0x5f, 0x74, 0x72,
-	0x75, 0x6e, 0x63, 0x61, 0x74, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0e, 0x73, 0x68,
-	0x6f, 0x75, 0x6c, 0x64, 0x54, 0x72, 0x75, 0x6e, 0x63, 0x61, 0x74, 0x65, 0x12, 0x23, 0x0a, 0x0d,
-	0x73, 0x68, 0x6f, 0x75, 0x6c, 0x64, 0x5f, 0x61, 0x70, 0x70, 0x65, 0x6e, 0x64, 0x18, 0x04, 0x20,
-	0x01, 0x28, 0x08, 0x52, 0x0c, 0x73, 0x68, 0x6f, 0x75, 0x6c, 0x64, 0x41, 0x70, 0x70, 0x65, 0x6e,
-	0x64, 0x12, 0x26, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0e, 0x32,
-	0x12, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x46, 0x69, 0x6c, 0x65, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x54,
-	0x79, 0x70, 0x65, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74,
-	0x61, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x22, 0x3d, 0x0a,
-	0x0c, 0x4e, 0x6f, 0x64, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x2d, 0x0a,
-	0x09, 0x66, 0x69, 0x6c, 0x65, 0x5f, 0x69, 0x6e, 0x66, 0x6f, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b,
-	0x32, 0x10, 0x2e, 0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x73, 0x2e, 0x46, 0x69, 0x6c, 0x65, 0x49, 0x6e,
-	0x66, 0x6f, 0x52, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x49, 0x6e, 0x66, 0x6f, 0x22, 0x2d, 0x0a, 0x0e,
-	0x4d, 0x61, 0x73, 0x74, 0x65, 0x72, 0x46, 0x69, 0x6c, 0x65, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x1b,
-	0x0a, 0x09, 0x66, 0x69, 0x6c, 0x65, 0x5f, 0x70, 0x61, 0x74, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x50, 0x61, 0x74, 0x68, 0x2a, 0x22, 0x0a, 0x0d, 0x46,
-	0x69, 0x6c, 0x65, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x54, 0x79, 0x70, 0x65, 0x12, 0x08, 0x0a, 0x04,
-	0x44, 0x61, 0x74, 0x61, 0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x45, 0x6e, 0x64, 0x10, 0x01, 0x32,
-	0x7d, 0x0a, 0x04, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x3b, 0x0a, 0x09, 0x46, 0x69, 0x6c, 0x65, 0x43,
-	0x68, 0x75, 0x6e, 0x6b, 0x12, 0x12, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x4e, 0x6f, 0x64, 0x65, 0x46,
-	0x69, 0x6c, 0x65, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x1a, 0x14, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x4d,
-	0x61, 0x73, 0x74, 0x65, 0x72, 0x46, 0x69, 0x6c, 0x65, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x22, 0x00,
-	0x28, 0x01, 0x30, 0x01, 0x12, 0x38, 0x0a, 0x08, 0x46, 0x69, 0x6c, 0x65, 0x49, 0x6e, 0x66, 0x6f,
-	0x12, 0x11, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x4e, 0x6f, 0x64, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x49,
-	0x6e, 0x66, 0x6f, 0x1a, 0x13, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x4d, 0x61, 0x73, 0x74, 0x65, 0x72,
-	0x46, 0x69, 0x6c, 0x65, 0x49, 0x6e, 0x66, 0x6f, 0x22, 0x00, 0x28, 0x01, 0x30, 0x01, 0x42, 0x18,
+	0x74, 0x61, 0x73, 0x6b, 0x49, 0x64, 0x12, 0x2d, 0x0a, 0x09, 0x66, 0x69, 0x6c, 0x65, 0x5f, 0x69,
+	0x6e, 0x66, 0x6f, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x6d, 0x6f, 0x64, 0x65,
+	0x6c, 0x73, 0x2e, 0x46, 0x69, 0x6c, 0x65, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x08, 0x66, 0x69, 0x6c,
+	0x65, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x14, 0x0a, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x18, 0x03,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x12, 0x12, 0x0a, 0x04, 0x64,
+	0x61, 0x74, 0x61, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x22,
+	0x12, 0x0a, 0x10, 0x53, 0x65, 0x6e, 0x64, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x40, 0x0a, 0x0f, 0x52, 0x65, 0x63, 0x76, 0x46, 0x69, 0x6c, 0x65, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x17, 0x0a, 0x07, 0x74, 0x61, 0x73, 0x6b, 0x5f, 0x69,
+	0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x06, 0x74, 0x61, 0x73, 0x6b, 0x49, 0x64, 0x12,
+	0x14, 0x0a, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05,
+	0x65, 0x72, 0x72, 0x6f, 0x72, 0x22, 0x44, 0x0a, 0x15, 0x52, 0x65, 0x63, 0x76, 0x46, 0x69, 0x6c,
+	0x65, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x17,
+	0x0a, 0x07, 0x74, 0x61, 0x73, 0x6b, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52,
+	0x06, 0x74, 0x61, 0x73, 0x6b, 0x49, 0x64, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x32, 0x90, 0x01, 0x0a, 0x0a,
+	0x46, 0x69, 0x6c, 0x65, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x12, 0x40, 0x0a, 0x08, 0x53, 0x65,
+	0x6e, 0x64, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x19, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x53, 0x65, 0x6e,
+	0x64, 0x46, 0x69, 0x6c, 0x65, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x15, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x53, 0x65, 0x6e, 0x64, 0x46, 0x69, 0x6c, 0x65,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x28, 0x01, 0x12, 0x40, 0x0a, 0x08,
+	0x52, 0x65, 0x63, 0x76, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x14, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x52,
+	0x65, 0x63, 0x76, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1a,
+	0x2e, 0x72, 0x70, 0x63, 0x2e, 0x52, 0x65, 0x63, 0x76, 0x46, 0x69, 0x6c, 0x65, 0x43, 0x68, 0x75,
+	0x6e, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x30, 0x01, 0x42, 0x18,
 	0x5a, 0x16, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x43, 0x79, 0x44,
 	0x72, 0x69, 0x76, 0x65, 0x2f, 0x72, 0x70, 0x63, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
@@ -397,29 +290,25 @@ func file_rpc_file_stream_proto_rawDescGZIP() []byte {
 	return file_rpc_file_stream_proto_rawDescData
 }
 
-var file_rpc_file_stream_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_rpc_file_stream_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_rpc_file_stream_proto_goTypes = []interface{}{
-	(FileChunkType)(0),      // 0: rpc.FileChunkType
-	(*NodeFileChunk)(nil),   // 1: rpc.NodeFileChunk
-	(*MasterFileChunk)(nil), // 2: rpc.MasterFileChunk
-	(*NodeFileInfo)(nil),    // 3: rpc.NodeFileInfo
-	(*MasterFileInfo)(nil),  // 4: rpc.MasterFileInfo
-	(*models.FileInfo)(nil), // 5: models.FileInfo
+	(*SendFileChunkRequest)(nil),  // 0: rpc.SendFileChunkRequest
+	(*SendFileResponse)(nil),      // 1: rpc.SendFileResponse
+	(*RecvFileRequest)(nil),       // 2: rpc.RecvFileRequest
+	(*RecvFileChunkResponse)(nil), // 3: rpc.RecvFileChunkResponse
+	(*models.FileInfo)(nil),       // 4: models.FileInfo
 }
 var file_rpc_file_stream_proto_depIdxs = []int32{
-	0, // 0: rpc.NodeFileChunk.type:type_name -> rpc.FileChunkType
-	0, // 1: rpc.MasterFileChunk.type:type_name -> rpc.FileChunkType
-	5, // 2: rpc.NodeFileInfo.file_info:type_name -> models.FileInfo
-	1, // 3: rpc.File.FileChunk:input_type -> rpc.NodeFileChunk
-	3, // 4: rpc.File.FileInfo:input_type -> rpc.NodeFileInfo
-	2, // 5: rpc.File.FileChunk:output_type -> rpc.MasterFileChunk
-	4, // 6: rpc.File.FileInfo:output_type -> rpc.MasterFileInfo
-	5, // [5:7] is the sub-list for method output_type
-	3, // [3:5] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	4, // 0: rpc.SendFileChunkRequest.file_info:type_name -> models.FileInfo
+	0, // 1: rpc.FileStream.SendFile:input_type -> rpc.SendFileChunkRequest
+	2, // 2: rpc.FileStream.RecvFile:input_type -> rpc.RecvFileRequest
+	1, // 3: rpc.FileStream.SendFile:output_type -> rpc.SendFileResponse
+	3, // 4: rpc.FileStream.RecvFile:output_type -> rpc.RecvFileChunkResponse
+	3, // [3:5] is the sub-list for method output_type
+	1, // [1:3] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_rpc_file_stream_proto_init() }
@@ -429,7 +318,7 @@ func file_rpc_file_stream_proto_init() {
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_rpc_file_stream_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NodeFileChunk); i {
+			switch v := v.(*SendFileChunkRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -441,7 +330,7 @@ func file_rpc_file_stream_proto_init() {
 			}
 		}
 		file_rpc_file_stream_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MasterFileChunk); i {
+			switch v := v.(*SendFileResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -453,7 +342,7 @@ func file_rpc_file_stream_proto_init() {
 			}
 		}
 		file_rpc_file_stream_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NodeFileInfo); i {
+			switch v := v.(*RecvFileRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -465,7 +354,7 @@ func file_rpc_file_stream_proto_init() {
 			}
 		}
 		file_rpc_file_stream_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MasterFileInfo); i {
+			switch v := v.(*RecvFileChunkResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -482,14 +371,13 @@ func file_rpc_file_stream_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_rpc_file_stream_proto_rawDesc,
-			NumEnums:      1,
+			NumEnums:      0,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_rpc_file_stream_proto_goTypes,
 		DependencyIndexes: file_rpc_file_stream_proto_depIdxs,
-		EnumInfos:         file_rpc_file_stream_proto_enumTypes,
 		MessageInfos:      file_rpc_file_stream_proto_msgTypes,
 	}.Build()
 	File_rpc_file_stream_proto = out.File

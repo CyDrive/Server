@@ -64,8 +64,8 @@ func PackSafeAccount(account *models.Account) *models.SafeAccount {
 	}
 }
 
-func GetAccountDataDir(account *models.Account) string {
-	return fmt.Sprintf("data/%v", account.Id)
+func GetAccountDataDir(accountId int32) string {
+	return fmt.Sprintf("data/%d", accountId)
 }
 
 func GetDateTimeNow() string {
@@ -111,7 +111,11 @@ func ReadUntilFull(reader io.Reader, buf []byte) error {
 }
 
 func AccountFilePath(account *models.Account, path string) string {
-	return strings.Join([]string{GetAccountDataDir(account), path}, "/")
+	return strings.Join([]string{GetAccountDataDir(account.Id), path}, "/")
+}
+
+func AccountFilePathById(accountId int32, path string) string {
+	return strings.Join([]string{GetAccountDataDir(accountId), path}, "/")
 }
 
 func ShouldCompressed(fileInfo os.FileInfo) bool {
@@ -192,4 +196,28 @@ func GetJsonDecoder() *protojson.UnmarshalOptions {
 	return &protojson.UnmarshalOptions{
 		DiscardUnknown: true,
 	}
+}
+
+func GetAccountIdFromFilePath(filePath string) int32 {
+	dirs := strings.Split(filePath, "/")
+	accoundId, err := strconv.ParseInt(dirs[1], 10, 32)
+	if err != nil {
+		panic(err)
+	}
+	return int32(accoundId)
+}
+
+// return: accountId, filePath
+func ParseFilePath(fullFilePath string) (int32, string) {
+	firstSepIndex := strings.Index(fullFilePath, "/")
+	leftPath := fullFilePath[firstSepIndex+1:]
+
+	secondSepIndex := strings.Index(leftPath, "/")
+
+	accountId, err := strconv.ParseInt(leftPath[:secondSepIndex], 10, 32)
+	if err != nil {
+		panic(err)
+	}
+
+	return int32(accountId), leftPath[secondSepIndex+1:]
 }

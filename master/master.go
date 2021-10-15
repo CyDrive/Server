@@ -8,6 +8,7 @@ import (
 	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
 	"github.com/CyDrive/master/envs"
+	"github.com/CyDrive/master/node_manager"
 	"github.com/CyDrive/master/store"
 	"github.com/CyDrive/models"
 	"github.com/CyDrive/network"
@@ -43,13 +44,13 @@ func GetAccountStore() store.AccountStore {
 func GetEnv() envs.Env {
 	return master.env
 }
-
-type NodeManagerServer struct {
-	rpc.UnimplementedManageServer
+func GetNodeManager() *node_manager.NodeManager {
+	return master.nodeManager
 }
 
 type Master struct {
-	nodeManagerServer *NodeManagerServer
+	nodeManager      *node_manager.NodeManager
+	nodeManageServer *NodeManageServer
 
 	fileTransferor *network.FileTransferor
 
@@ -75,10 +76,10 @@ func NewMaster(config config.Config) *Master {
 	}
 
 	master = &Master{
-		nodeManagerServer: &NodeManagerServer{},
-		fileTransferor:    network.NewFileTransferor(env),
-		env:               env,
-		accountStore:      accountStore,
+		nodeManageServer: &NodeManageServer{},
+		fileTransferor:   network.NewFileTransferor(env),
+		env:              env,
+		accountStore:     accountStore,
 	}
 
 	return master
@@ -114,7 +115,7 @@ func (m *Master) Start() {
 		panic(err)
 	}
 	grpcServer := grpc.NewServer()
-	rpc.RegisterManageServer(grpcServer, m.nodeManagerServer)
+	rpc.RegisterManageServer(grpcServer, m.nodeManageServer)
 	go grpcServer.Serve(listen)
 
 	// Start FileTransferManager
