@@ -405,3 +405,47 @@ func UploadHandle(c *gin.Context) {
 		Data:       string(respBytes),
 	})
 }
+
+func DeleteHandle(c *gin.Context) {
+	userI, _ := c.Get("account")
+	account := userI.(*models.Account)
+
+	filePath := c.Param("path")
+	filePath = utils.AccountFilePath(account, filePath)
+
+	fileInfo, err := GetEnv().Stat(filePath)
+	if err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_IoError,
+			Message:    err.Error(),
+		})
+		return
+	}
+
+	err = GetEnv().RemoveAll(filePath)
+	if err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
+		})
+		return
+	}
+
+	resp := models.DeleteResponse{
+		FileInfo: fileInfo,
+	}
+	respBytes, err := utils.GetJsonEncoder().Marshal(&resp)
+	if err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.Response{
+		StatusCode: consts.StatusCode_Ok,
+		Message:    "deleted",
+		Data:       string(respBytes),
+	})
+}

@@ -95,6 +95,7 @@ func (m *Master) Start() {
 
 	router.POST("/register", RegisterHandle)
 	router.POST("/login", LoginHandle)
+
 	router.GET("/list/*path", ListHandle)
 
 	// router.GET("/file_info/*path", GetFileInfoHandle)
@@ -102,6 +103,7 @@ func (m *Master) Start() {
 
 	router.GET("/file/*path", DownloadHandle)
 	router.PUT("/file/*path", UploadHandle)
+	router.DELETE("/file/*path", DeleteHandle)
 
 	go router.Run(consts.HttpListenPortStr)
 
