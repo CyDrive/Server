@@ -28,6 +28,12 @@ master_linux: pre
 	CGO_ENABLED=0  GOOS=linux go build -o master_linux
 	@echo
 
+master_macos: pre
+	@echo "building master_linux..."
+	@cd $(dir)/master/bin && \
+	CGO_ENABLED=0  GOOS=darwin go build -o master_macos
+	@echo
+
 node_all: node_windows node_linux
 
 node_windows: pre
@@ -40,6 +46,12 @@ node_linux: pre
 	@echo "building node_linux..."
 	@cd $(dir)/node/bin && \
 	CGO_ENABLED=0  GOOS=linux go build -o node_linux
+	@echo
+
+master_macos: pre
+	@echo "building node_linux..."
+	@cd $(dir)/node/bin && \
+	CGO_ENABLED=0  GOOS=darwin go build -o node_macos
 	@echo
 
 clean:
