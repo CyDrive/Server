@@ -76,6 +76,7 @@ func NewMaster(config config.Config) *Master {
 	}
 
 	master = &Master{
+		nodeManager:      node_manager.NewNodeManager(),
 		nodeManageServer: &NodeManageServer{},
 		fileTransferor:   network.NewFileTransferor(env),
 		env:              env,

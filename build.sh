@@ -12,6 +12,6 @@ go build -race -o master
 
 echo
 
-cd $root/node
+cd $root/node/bin
 echo "build node..."
-pwd
+go build -race -o node
