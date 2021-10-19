@@ -37,7 +37,7 @@ make all_update
 
 The makefile would compile three executions for both master and storage node, which correspond to three OS (Linux, Windows, macOS) respectively.
 
-You can compile only the master/node, and even only one version, the targets are named by: `name_os`. For example, you can compile the master running on linux by:
+You can compile only the master/node, and even only one version, the targets are named by: `component_os`. For example, you can compile the master running on linux by:
 ```
 make master_linux
 ```
