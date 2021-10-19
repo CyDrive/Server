@@ -55,7 +55,7 @@ func NewMemStore() *MemStore {
 	utils.GetJsonDecoder().Unmarshal(data, &accountArray)
 	for _, account := range accountArray.AccountList {
 		// Get the storage usage
-		account.Usage, _ = utils.DirSize(utils.GetAccountDataDir(account))
+		account.Usage, _ = utils.DirSize(utils.GetAccountDataDir(account.Id))
 
 		store.idGen.Ref(account.Id)
 		store.accountEmailMap[account.Email] = account

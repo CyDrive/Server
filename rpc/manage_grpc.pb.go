@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 type ManageClient interface {
 	JoinCluster(ctx context.Context, in *JoinClusterRequest, opts ...grpc.CallOption) (*JoinClusterResponse, error)
 	HeartBeats(ctx context.Context, in *HeartBeatsRequest, opts ...grpc.CallOption) (*HeartBeatsResponse, error)
+	Notifier(ctx context.Context, in *ConnectNotifierRequest, opts ...grpc.CallOption) (Manage_NotifierClient, error)
 }
 
 type manageClient struct {
@@ -48,12 +49,45 @@ func (c *manageClient) HeartBeats(ctx context.Context, in *HeartBeatsRequest, op
 	return out, nil
 }
 
+func (c *manageClient) Notifier(ctx context.Context, in *ConnectNotifierRequest, opts ...grpc.CallOption) (Manage_NotifierClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Manage_ServiceDesc.Streams[0], "/rpc.Manage/Notifier", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &manageNotifierClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Manage_NotifierClient interface {
+	Recv() (*Notify, error)
+	grpc.ClientStream
+}
+
+type manageNotifierClient struct {
+	grpc.ClientStream
+}
+
+func (x *manageNotifierClient) Recv() (*Notify, error) {
+	m := new(Notify)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // ManageServer is the server API for Manage service.
 // All implementations must embed UnimplementedManageServer
 // for forward compatibility
 type ManageServer interface {
 	JoinCluster(context.Context, *JoinClusterRequest) (*JoinClusterResponse, error)
 	HeartBeats(context.Context, *HeartBeatsRequest) (*HeartBeatsResponse, error)
+	Notifier(*ConnectNotifierRequest, Manage_NotifierServer) error
 	mustEmbedUnimplementedManageServer()
 }
 
@@ -66,6 +100,9 @@ func (UnimplementedManageServer) JoinCluster(context.Context, *JoinClusterReques
 }
 func (UnimplementedManageServer) HeartBeats(context.Context, *HeartBeatsRequest) (*HeartBeatsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HeartBeats not implemented")
+}
+func (UnimplementedManageServer) Notifier(*ConnectNotifierRequest, Manage_NotifierServer) error {
+	return status.Errorf(codes.Unimplemented, "method Notifier not implemented")
 }
 func (UnimplementedManageServer) mustEmbedUnimplementedManageServer() {}
 
@@ -116,6 +153,27 @@ func _Manage_HeartBeats_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Manage_Notifier_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ConnectNotifierRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ManageServer).Notifier(m, &manageNotifierServer{stream})
+}
+
+type Manage_NotifierServer interface {
+	Send(*Notify) error
+	grpc.ServerStream
+}
+
+type manageNotifierServer struct {
+	grpc.ServerStream
+}
+
+func (x *manageNotifierServer) Send(m *Notify) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // Manage_ServiceDesc is the grpc.ServiceDesc for Manage service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -132,6 +190,12 @@ var Manage_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Manage_HeartBeats_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Notifier",
+			Handler:       _Manage_Notifier_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "rpc/manage.proto",
 }

@@ -4,9 +4,12 @@ option go_package = "github.com/CyDrive/rpc";
 
 package rpc;
 
+import "models/file_info.proto";
+
 service Manage {
     rpc JoinCluster (JoinClusterRequest) returns (JoinClusterResponse) {}
     rpc HeartBeats (HeartBeatsRequest) returns (HeartBeatsResponse) {}
+    rpc Notifier (ConnectNotifierRequest) returns (stream Notify) {}
 }
 
 
@@ -33,6 +36,31 @@ message HeartBeatsRequest {
 }
 
 message HeartBeatsResponse {
+    
+}
+
+message ConnectNotifierRequest {
+    int32 node_id = 1;
+}
+
+message Notify {
+    oneof notify {
+        CreateSendFileTaskNotify create_sendfile_task_notify = 1;
+        CreateRecvFileTaskNotify create_recvfile_task_notify = 2;
+    }
+}
+
+message CreateSendFileTaskNotify {
+    int32 task_id = 1;
+    string file_path = 2;
+    bool need_file_info = 3;
+}
+
+message CreateRecvFileTaskNotify {
+    int32 task_id = 1;
+    models.FileInfo file_info = 2;
+    bool should_truncate = 3;
+    bool should_append = 4;
 }
 
 

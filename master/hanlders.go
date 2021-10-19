@@ -148,12 +148,12 @@ func ListHandle(c *gin.Context) {
 
 	path := c.Param("path")
 	path = strings.Trim(path, "/")
-	absPath := strings.Join([]string{utils.GetAccountDataDir(account), path}, "/")
+	absPath := utils.AccountFilePath(account, path)
 
 	fileList, err := GetEnv().ReadDir(absPath)
 	for i := range fileList {
 		fileList[i].FilePath = strings.ReplaceAll(fileList[i].FilePath, "\\", "/")
-		fileList[i].FilePath = strings.TrimPrefix(fileList[i].FilePath, utils.GetAccountDataDir(account))
+		fileList[i].FilePath = strings.TrimPrefix(fileList[i].FilePath, utils.GetAccountDataDir(account.Id))
 	}
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
@@ -186,7 +186,7 @@ func GetFileInfoHandle(c *gin.Context) {
 
 	filePath := c.Param("path")
 	filePath = strings.Trim(filePath, "/")
-	absFilePath := filepath.Join(utils.GetAccountDataDir(account), filePath)
+	absFilePath := utils.AccountFilePath(account,filePath)
 
 	fileInfo, err := GetEnv().Stat(absFilePath)
 	if err != nil {
@@ -281,7 +281,7 @@ func DownloadHandle(c *gin.Context) {
 	filePath := c.Param("path")
 
 	// absolute filepath
-	filePath = strings.Join([]string{utils.GetAccountDataDir(account), filePath}, "/")
+	filePath = utils.AccountFilePath(account,filePath)
 	fileInfo, _ := GetEnv().Stat(filePath)
 
 	if fileInfo.IsDir {
@@ -300,7 +300,7 @@ func DownloadHandle(c *gin.Context) {
 	}
 
 	uFileInfo := fileInfo
-	uFileInfo.FilePath, _ = filepath.Rel(utils.GetAccountDataDir(account), uFileInfo.FilePath)
+	uFileInfo.FilePath, _ = filepath.Rel(utils.GetAccountDataDir(account.Id), uFileInfo.FilePath)
 	uFileInfo.FilePath = strings.ReplaceAll(uFileInfo.FilePath, "\\", "/")
 
 	log.Infof("clientIp=%+v", c.ClientIP())
@@ -333,7 +333,7 @@ func UploadHandle(c *gin.Context) {
 
 	filePath := c.Param("path")
 
-	filePath = strings.Join([]string{utils.GetAccountDataDir(account), filePath}, "/")
+	filePath = utils.AccountFilePath(account,filePath)
 	fileDir := filepath.Dir(filePath)
 	if err := GetEnv().MkdirAll(fileDir, 0666); err != nil {
 		c.JSON(http.StatusOK, models.Response{

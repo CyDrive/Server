@@ -1,14 +1,14 @@
 package node
 
 import (
-	"context"
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/CyDrive/node/config"
 	"github.com/CyDrive/rpc"
 	"github.com/CyDrive/utils"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
 
@@ -17,11 +17,10 @@ type StorageNode struct {
 	Usage int64
 	Id    int32
 
-	heartBeatTimer *time.Timer
-	conn           *grpc.ClientConn
-	grpcClient     rpc.ManageClient
-
-	log *logrus.Logger
+	heartBeatTimer   *time.Timer
+	conn             *grpc.ClientConn
+	manageClient     rpc.ManageClient
+	fileStreamClient rpc.FileStreamClient
 }
 
 func NewStorageNode(config config.Config) *StorageNode {
@@ -30,21 +29,18 @@ func NewStorageNode(config config.Config) *StorageNode {
 		panic(err)
 	}
 
-	logfile, err := os.Create(time.Now().String() + ".log")
+	logfile, err := os.Create(fmt.Sprintf("node %v.log", utils.GetDateTimeNow()))
 	if err != nil {
 		panic(err)
 	}
 
-	log := logrus.New()
-	log.Out = logfile
+	log.SetOutput(logfile)
 
 	node := StorageNode{
 		Config: &config,
 		Usage:  usage,
 
 		heartBeatTimer: time.NewTimer(250 * time.Millisecond),
-
-		log: log,
 	}
 
 	return &node
@@ -52,61 +48,33 @@ func NewStorageNode(config config.Config) *StorageNode {
 
 func (node *StorageNode) Start() {
 	var err error
+
+	log.Infof("connecting to the gRPC services")
 	node.conn, err = grpc.Dial(node.MasterAddr, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		panic(err)
 	}
 
-	node.grpcClient = rpc.NewManageClient(node.conn)
+	node.manageClient = rpc.NewManageClient(node.conn)
+	node.fileStreamClient = rpc.NewFileStreamClient(node.conn)
 
+	log.Infof("connections setups")
+	// join cluster
 	for {
 		if err := node.JoinCluster(); err != nil {
-			node.log.Warn(err)
+			log.Errorf("can't join cluster, err=%+v, will retry after 500ms", err)
+			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 		break
 	}
 
-	go func() {
-		for {
-			select {
-			case <-node.heartBeatTimer.C:
-				node.heartBeatTimer.Reset(250 * time.Millisecond)
-				node.HeartBeat()
-			}
+	// cron tasks
+	for {
+		select {
+		case <-node.heartBeatTimer.C:
+			node.heartBeatTimer.Reset(250 * time.Millisecond)
+			node.HeartBeat()
 		}
-	}()
-}
-
-func (node *StorageNode) JoinCluster() error {
-	req := &rpc.JoinClusterRequest{
-		Capacity: node.Cap,
-		Usage:    node.Usage,
-		Type:     node.Type,
-	}
-
-	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	resp, err := node.grpcClient.JoinCluster(ctx, req)
-	if err != nil {
-		return err
-	}
-
-	node.Id = resp.Id
-
-	return nil
-}
-
-func (node *StorageNode) HeartBeat() {
-	req := &rpc.HeartBeatsRequest{
-		Id:              node.Id,
-		StorageUsage:    node.Usage,
-		CpuUsagePercent: 0,
-		TaskNum:         0,
-	}
-
-	ctx, _ := context.WithTimeout(context.Background(), 250*time.Millisecond)
-	_, err := node.grpcClient.HeartBeats(ctx, req)
-	if err != nil {
-		node.log.Warn(err)
 	}
 }

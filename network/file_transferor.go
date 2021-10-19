@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -21,7 +20,7 @@ import (
 
 type DataTask struct {
 	// filled when the server deliver task id
-	Id           int32
+	Id           types.TaskId
 	ClientIp     string
 	FileInfo     *models.FileInfo
 	Account      *models.Account
@@ -32,6 +31,9 @@ type DataTask struct {
 	// filled when client connects to the server
 	Conn          *net.TCPConn
 	LastAcessTime int64
+
+	// filled when the task starts
+	FileHandle envs.FileHandle
 }
 
 type FileTransferor struct {
@@ -91,6 +93,15 @@ func (ft *FileTransferor) CreateTask(clientIp string, fileInfo *models.FileInfo,
 	return taskId
 }
 
+func (ft *FileTransferor) GetTask(taskId types.TaskId) *DataTask {
+	taskI, ok := ft.taskMap.Load(taskId)
+	if !ok {
+		return nil
+	}
+
+	return taskI.(*DataTask)
+}
+
 func (ft *FileTransferor) ProcessConn(conn *net.TCPConn) {
 	bufReader := bufio.NewReader(conn)
 	var taskId int32
@@ -132,22 +143,28 @@ func (ft *FileTransferor) ProcessConn(conn *net.TCPConn) {
 }
 
 func (ft *FileTransferor) DownloadHandle(task *DataTask) {
-	path := strings.Join([]string{utils.GetAccountDataDir(task.Account),
-		task.FileInfo.FilePath}, "/")
-	file, err := ft.env.Open(path)
+	var err error
+
+	path := utils.AccountFilePath(task.Account, task.FileInfo.FilePath)
+	task.FileHandle, err = ft.env.Open(path)
+
+	if remoteFileHandle, ok := task.FileHandle.(*envs.RemoteFile); ok && remoteFileHandle.CallOnStart != nil {
+		remoteFileHandle.CallOnStart(task.Id)
+	}
+
 	if err != nil {
 		log.Errorf("open file %+v error: %+v", task.FileInfo.FilePath, err)
 		// todo: notify account by message channel
 		return
 	}
-	defer file.Close()
+	defer task.FileHandle.Close()
 
-	if _, err = file.Seek(task.HasDoneBytes, io.SeekStart); err != nil {
+	if _, err = task.FileHandle.Seek(task.HasDoneBytes, io.SeekStart); err != nil {
 		log.Errorf("file seeks to %+v error: %+v", task.HasDoneBytes, err)
 	}
 
 	for {
-		written, err := io.Copy(task.Conn, file)
+		written, err := io.Copy(task.Conn, task.FileHandle)
 		if err != nil {
 			if err == io.EOF {
 				log.Infof("conn has been closed")
@@ -169,8 +186,7 @@ func (ft *FileTransferor) DownloadHandle(task *DataTask) {
 }
 
 func (ft *FileTransferor) UploadHandle(task *DataTask) {
-	filePath := strings.Join([]string{utils.GetAccountDataDir(task.Account),
-		task.FileInfo.FilePath}, "/")
+	filePath := utils.AccountFilePath(task.Account, task.FileInfo.FilePath)
 
 	file, err := ft.env.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
