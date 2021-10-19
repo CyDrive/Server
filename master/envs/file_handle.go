@@ -116,14 +116,22 @@ func (file *RemoteFile) Write(p []byte) (n int, err error) {
 func (file *RemoteFile) Read(p []byte) (n int, err error) {
 	n, err = file.buffer.Read(p)
 
-	if err != nil {
-		if err == io.EOF && file.Err == nil {
-			err = nil
-		}
-	} else {
-		if file.Err != nil {
-			err = file.Err
-		}
+	// we think of the err = io.EOF as err = nil
+	// and always return the file.Err if there're both errors
+	// +--------+----------+--------+
+	// |  err   | file.Err | return |
+	// +--------+----------+--------+
+	// | nil    | nil      | nil    |
+	// | io.EOF | nil      | nil    |
+	// | io.EOF | error    | error  |
+	// | error  | nil      | error  |
+	// | error1 | error2   | error2 |
+	// +--------+----------+--------+
+	if err == io.EOF {
+		err = nil
+	}
+	if file.Err != nil {
+		err = file.Err
 	}
 
 	return n, err
