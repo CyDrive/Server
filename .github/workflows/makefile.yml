@@ -10,5 +10,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     
+    - name: race check
+      run: make check
+      
     - name: build
       run: make all
