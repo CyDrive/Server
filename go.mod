@@ -1,6 +1,6 @@
 module github.com/CyDrive
 
-go 1.16
+go 1.15
 
 require (
 	github.com/gin-contrib/sessions v0.0.3
