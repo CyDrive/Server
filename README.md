@@ -1,5 +1,9 @@
 # CyDrive
 
+## Requirements
+
+### Optional
+1. You need to install protobuf compiler if you have to modify the proto files, please follow this [installation guide](https://grpc.io/docs/protoc-installation/). For generating different language codes, you may need another plugins, the makefile of this repo **only install the required plugins of itself** (for go and gorm).
 ## Structure
 CyDrive consists of two parts: Master and Storage Nodes. They are located in the `master` dir and `node` dir, and the common parts of them are located in the root dir of this repo:
 - config: configuration definitions
