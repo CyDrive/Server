@@ -13,15 +13,11 @@ jobs:
     - name: Setup protoc
       uses: arduino/setup-protoc@v1.1.2
 
-    - name: Install Protoc
-      uses: arduino/setup-protoc@v1
-
-    
-    - name: race check
+    - name: Race check
       run: make check
+
+    - name: Re-generate proto-defined files
+      run: make update_proto
       
-    - name: build
+    - name: Build
       run: make all
-    
-    - name: build with generating proto-defined files
-      run: make all_update

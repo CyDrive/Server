@@ -12,7 +12,7 @@ pre:
 	@go install github.com/infobloxopen/protoc-gen-gorm
 	@go mod tidy
 
-update_proto:
+update_proto: pre
 	@sh uproto.sh
 
 master_all: master_windows master_linux master_macos
