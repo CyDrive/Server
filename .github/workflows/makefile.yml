@@ -9,9 +9,15 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    
-    - name: race check
+
+    - name: Setup protoc
+      uses: arduino/setup-protoc@v1.1.2
+
+    - name: Race check
       run: make check
+
+    - name: Re-generate proto-defined files
+      run: make update_proto
       
-    - name: build
+    - name: Build
       run: make all

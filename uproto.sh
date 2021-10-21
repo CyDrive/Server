@@ -3,7 +3,7 @@
 # follow https://github.com/infobloxopen/protoc-gen-gorm to install protoc-gen-gorm
 # note: new go version may download the repo into $GOPATH/pkg/mod
 
-proto_dir="$GOPATH/src/github.com/infobloxopen/protoc-gen-gorm/proto"
+proto_dir="third_party/proto"
 echo "proto_dir=$proto_dir"
 
 echo "protoc rpc..."
