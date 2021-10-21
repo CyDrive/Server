@@ -5,6 +5,8 @@ all: master_all node_all
 
 all_update: update_proto all
 
+check: master_check node_check
+
 pre:
 	@go mod tidy
 
@@ -31,6 +33,11 @@ master_macos: pre
 	CGO_ENABLED=0  GOOS=darwin go build -o master_macos
 	@echo
 
+master_check: pre
+	@cd $(dir)/master/bin && \
+	go build --race -o master_race_check && \
+	rm master_race_check
+
 node_all: node_windows node_linux node_macos
 
 node_windows: pre
@@ -50,6 +57,11 @@ node_macos: pre
 	@cd $(dir)/node/bin && \
 	CGO_ENABLED=0  GOOS=darwin go build -o node_macos
 	@echo
+
+node_check: pre
+	@cd $(dir)/node/bin && \
+	go build --race -o node_race_check && \
+	rm node_race_check
 
 clean:
 	@echo "removing master_windows.exe, master_linux, node_windows.exe, node_linux"
