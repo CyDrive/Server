@@ -15,3 +15,6 @@ jobs:
       
     - name: build
       run: make all
+    
+    - name: build with generating proto-defined files
+      run: make all_update

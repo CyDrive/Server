@@ -8,6 +8,7 @@ all_update: update_proto all
 check: master_check node_check
 
 pre:
+	@go install github.com/infobloxopen/protoc-gen-gorm@v1.0.1
 	@go mod tidy
 
 update_proto:
