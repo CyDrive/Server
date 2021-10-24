@@ -173,13 +173,45 @@ func (store *MemStore) save() {
 // Store users in a relational db
 type RdbStore struct {
 	db *gorm.DB
+	accountUsageCache sync.Map
 }
 
 func NewRdbStore(config config.Config) *RdbStore {
 	store := RdbStore{}
 	store.db, _ = gorm.Open("mysql", config.PackDSN())
+
+	go store.MonitorUsageCache(5)
 	return &store
 }
+
+func (store *RdbStore) AddAccount(account *models.Account) error {
+	accountOrm, err := account.ToORM(context.Background())
+	if err != nil{
+		return err
+	}
+
+	if store.db.Create(accountOrm).Error != nil{
+		return fmt.Errorf("email %v has been registered", account.Email)
+	}
+
+	return nil
+}
+
+func (store *RdbStore) MonitorUsageCache(delay int64) error {
+	for {
+		store.accountUsageCache.Range(func(key, value interface{}) bool	 {
+			email := key.(string)
+			usage := value.(int64)
+
+			store.accountUsageCache.Delete(email)
+			store.db.Model(models.AccountORM{}).Where("email = ?", email).UpdateColumn("Usage", gorm.Expr("usage + ?", usage))
+
+			return true
+		})
+
+		time.Sleep(time.Duration(delay) * time.Second)
+	}
+} 
 
 func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
 	var account models.AccountORM
@@ -189,5 +221,37 @@ func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
 	}
 
 	realAccount, _ := account.ToPB(context.Background())
+	
+	value, ok := store.accountUsageCache.Load(email)
+	usage := value.(int64)
+
+	if ok {
+		realAccount.Usage += usage
+	}
+	
 	return &realAccount
+}
+
+
+func (store *RdbStore) AddUsage(email string, usage int64) error {
+	value, ok := store.accountUsageCache.Load(email)
+	oldUsage := value.(int64)
+
+	if ok {
+		store.accountUsageCache.Store(email, oldUsage + usage)
+	}else{
+		store.accountUsageCache.Store(email, usage)
+	}
+
+	return nil
+}
+
+func (store *RdbStore) ExpandCap(email string, newCap int64) error {
+	err := store.db.Model(models.AccountORM{}).Where("email = ?", email).Update("Cap", newCap).Error
+
+	if err != nil{
+		return err
+	}
+
+	return nil
 }
