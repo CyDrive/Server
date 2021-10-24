@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/CyDrive/master/node_manager"
+	"github.com/CyDrive/master/managers"
 	"github.com/CyDrive/rpc"
 	"github.com/CyDrive/utils"
 )
@@ -16,7 +16,7 @@ type NodeManageServer struct {
 
 func (s *NodeManageServer) JoinCluster(ctx context.Context, req *rpc.JoinClusterRequest) (*rpc.JoinClusterResponse, error) {
 	nodeManager := GetNodeManager()
-	node := node_manager.NewNode(req.Capacity, req.Usage)
+	node := managers.NewNode(req.Capacity, req.Usage)
 
 	nodeManager.AddNode(node)
 

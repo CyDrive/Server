@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/CyDrive/consts"
-	"github.com/CyDrive/master/node_manager"
+	"github.com/CyDrive/master/managers"
 	"github.com/CyDrive/models"
 	"github.com/CyDrive/rpc"
 	"github.com/CyDrive/types"
@@ -85,10 +85,10 @@ func (env *LocalEnv) Stat(name string) (*models.FileInfo, error) {
 }
 
 type RemoteEnv struct {
-	nodeManager *node_manager.NodeManager
+	nodeManager *managers.NodeManager
 }
 
-func NewRemoteEnv(nodeManager *node_manager.NodeManager) *RemoteEnv {
+func NewRemoteEnv(nodeManager *managers.NodeManager) *RemoteEnv {
 	return &RemoteEnv{
 		nodeManager: nodeManager,
 	}

@@ -28,7 +28,7 @@ type AccountStore interface {
 
 // Store users in memory
 // load from a json file
-type MemStore struct {
+type AccountStoreMem struct {
 	idGen           *utils.IdGenerator
 	accountEmailMap map[string]*models.Account
 	rwMutex         *sync.RWMutex // guard for accountEmailMap
@@ -36,8 +36,8 @@ type MemStore struct {
 	updatedFlag int32
 }
 
-func NewMemStore() *MemStore {
-	store := MemStore{
+func NewMemStore() *AccountStoreMem {
+	store := AccountStoreMem{
 		idGen:           utils.NewIdGenerator(),
 		accountEmailMap: make(map[string]*models.Account),
 		rwMutex:         &sync.RWMutex{},
@@ -68,7 +68,7 @@ func NewMemStore() *MemStore {
 
 // required fields: Email, Password
 // optional fields: Name, Cap
-func (store *MemStore) AddAccount(account *models.Account) error {
+func (store *AccountStoreMem) AddAccount(account *models.Account) error {
 	store.rwMutex.RLock()
 	_, ok := store.accountEmailMap[account.Email]
 	if ok {
@@ -87,14 +87,14 @@ func (store *MemStore) AddAccount(account *models.Account) error {
 	return nil
 }
 
-func (store *MemStore) GetAccountByEmail(email string) (*models.Account, error) {
+func (store *AccountStoreMem) GetAccountByEmail(email string) (*models.Account, error) {
 	store.rwMutex.RLock()
 	defer store.rwMutex.RUnlock()
 
 	return store.accountEmailMap[email], nil
 }
 
-func (store *MemStore) AddUsage(email string, usage int64) error {
+func (store *AccountStoreMem) AddUsage(email string, usage int64) error {
 	store.rwMutex.RLock()
 	defer store.rwMutex.RUnlock()
 
@@ -111,7 +111,7 @@ func (store *MemStore) AddUsage(email string, usage int64) error {
 	return nil
 }
 
-func (store *MemStore) ExpandCap(email string, newCap int64) error {
+func (store *AccountStoreMem) ExpandCap(email string, newCap int64) error {
 	store.rwMutex.RLock()
 	defer store.rwMutex.RUnlock()
 
@@ -133,7 +133,7 @@ func (store *MemStore) ExpandCap(email string, newCap int64) error {
 	return nil
 }
 
-func (store *MemStore) persistThread() {
+func (store *AccountStoreMem) persistThread() {
 	for {
 		updatedNum := atomic.LoadInt32(&store.updatedFlag)
 		if updatedNum > 0 {
@@ -148,7 +148,7 @@ func (store *MemStore) persistThread() {
 	}
 }
 
-func (store *MemStore) save() {
+func (store *AccountStoreMem) save() {
 
 	accountList := models.AccountList{
 		AccountList: make([]*models.Account, 0, len(store.accountEmailMap)),
@@ -171,35 +171,35 @@ func (store *MemStore) save() {
 }
 
 // Store users in a relational db
-type RdbStore struct {
-	db *gorm.DB
+type AccountStoreRdb struct {
+	db                *gorm.DB
 	accountUsageCache sync.Map
 }
 
-func NewRdbStore(config config.Config) *RdbStore {
-	store := RdbStore{}
+func NewRdbStore(config config.Config) *AccountStoreRdb {
+	store := AccountStoreRdb{}
 	store.db, _ = gorm.Open("mysql", config.PackDSN())
 
 	go store.MonitorUsageCache(5)
 	return &store
 }
 
-func (store *RdbStore) AddAccount(account *models.Account) error {
+func (store *AccountStoreRdb) AddAccount(account *models.Account) error {
 	accountOrm, err := account.ToORM(context.Background())
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
-	if store.db.Create(accountOrm).Error != nil{
+	if store.db.Create(accountOrm).Error != nil {
 		return fmt.Errorf("email %v has been registered", account.Email)
 	}
 
 	return nil
 }
 
-func (store *RdbStore) MonitorUsageCache(delay int64) error {
+func (store *AccountStoreRdb) MonitorUsageCache(delay int64) error {
 	for {
-		store.accountUsageCache.Range(func(key, value interface{}) bool	 {
+		store.accountUsageCache.Range(func(key, value interface{}) bool {
 			email := key.(string)
 			usage := value.(int64)
 
@@ -211,9 +211,9 @@ func (store *RdbStore) MonitorUsageCache(delay int64) error {
 
 		time.Sleep(time.Duration(delay) * time.Second)
 	}
-} 
+}
 
-func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
+func (store *AccountStoreRdb) GetAccountByEmail(email string) *models.Account {
 	var account models.AccountORM
 
 	if store.db.First(&account, "email = ?", email).RecordNotFound() {
@@ -221,35 +221,34 @@ func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
 	}
 
 	realAccount, _ := account.ToPB(context.Background())
-	
+
 	value, ok := store.accountUsageCache.Load(email)
 	usage := value.(int64)
 
 	if ok {
 		realAccount.Usage += usage
 	}
-	
+
 	return &realAccount
 }
 
-
-func (store *RdbStore) AddUsage(email string, usage int64) error {
+func (store *AccountStoreRdb) AddUsage(email string, usage int64) error {
 	value, ok := store.accountUsageCache.Load(email)
 	oldUsage := value.(int64)
 
 	if ok {
-		store.accountUsageCache.Store(email, oldUsage + usage)
-	}else{
+		store.accountUsageCache.Store(email, oldUsage+usage)
+	} else {
 		store.accountUsageCache.Store(email, usage)
 	}
 
 	return nil
 }
 
-func (store *RdbStore) ExpandCap(email string, newCap int64) error {
+func (store *AccountStoreRdb) ExpandCap(email string, newCap int64) error {
 	err := store.db.Model(models.AccountORM{}).Where("email = ?", email).Update("Cap", newCap).Error
 
-	if err != nil{
+	if err != nil {
 		return err
 	}
 

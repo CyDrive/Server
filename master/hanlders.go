@@ -6,15 +6,18 @@ import (
 	"net/http"
 	"net/mail"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
+	"github.com/CyDrive/master/managers"
 	"github.com/CyDrive/models"
 	"github.com/CyDrive/utils"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -186,7 +189,7 @@ func GetFileInfoHandle(c *gin.Context) {
 
 	filePath := c.Param("path")
 	filePath = strings.Trim(filePath, "/")
-	absFilePath := utils.AccountFilePath(account,filePath)
+	absFilePath := utils.AccountFilePath(account, filePath)
 
 	fileInfo, err := GetEnv().Stat(absFilePath)
 	if err != nil {
@@ -281,7 +284,7 @@ func DownloadHandle(c *gin.Context) {
 	filePath := c.Param("path")
 
 	// absolute filepath
-	filePath = utils.AccountFilePath(account,filePath)
+	filePath = utils.AccountFilePath(account, filePath)
 	fileInfo, _ := GetEnv().Stat(filePath)
 
 	if fileInfo.IsDir {
@@ -333,7 +336,7 @@ func UploadHandle(c *gin.Context) {
 
 	filePath := c.Param("path")
 
-	filePath = utils.AccountFilePath(account,filePath)
+	filePath = utils.AccountFilePath(account, filePath)
 	fileDir := filepath.Dir(filePath)
 	if err := GetEnv().MkdirAll(fileDir, 0666); err != nil {
 		c.JSON(http.StatusOK, models.Response{
@@ -446,6 +449,72 @@ func DeleteHandle(c *gin.Context) {
 	c.JSON(http.StatusOK, models.Response{
 		StatusCode: consts.StatusCode_Ok,
 		Message:    "deleted",
+		Data:       string(respBytes),
+	})
+}
+
+// message service
+var (
+	upGrader = websocket.Upgrader{}
+)
+
+// queries: int32 device_id, int64 time, int32 count
+func GetMessageHandle(c *gin.Context) {
+	accountI, _ := c.Get("account")
+	account := accountI.(*models.Account)
+
+	deviceIdStr := c.Query("device_id")
+	deviceId, err := strconv.ParseInt(deviceIdStr, 10, 32)
+	if err != nil {
+		utils.Response(c, consts.StatusCode_InvalidParameters, "invalid device_id")
+		return
+	}
+
+	hub, ok := GetMessageManager().GetHub(account.Id)
+	isConnectRequest := !ok
+	if !ok {
+		conn, _ := upGrader.Upgrade(c.Writer, c.Request, nil)
+		hub.Register(
+			managers.NewMessageConn(hub, int32(deviceId), conn))
+	}
+
+	timeStr := c.Query("time")
+	countStr := c.Query("count")
+
+	// it's a connecting request
+	if isConnectRequest && len(timeStr) == 0 && len(countStr) == 0 {
+		utils.Response(c, consts.StatusCode_Ok, "connected")
+		return
+	}
+
+	lastTime, err := strconv.ParseInt(timeStr, 10, 64)
+	if err != nil {
+		utils.Response(c,
+			consts.StatusCode_InvalidParameters, err.Error())
+		return
+	}
+	count, err := strconv.ParseInt(countStr, 10, 32)
+	if err != nil {
+		utils.Response(c,
+			consts.StatusCode_InvalidParameters, err.Error())
+		return
+	}
+
+	messages := GetMessageManager().
+		GetMessageStore().
+		GetMessageByTime(account.Id,
+			int32(count),
+			time.Unix(lastTime, 0))
+
+	resp := models.GetMessageResponse{
+		Messages: messages,
+	}
+
+	respBytes, _ := utils.GetJsonEncoder().Marshal(&resp)
+
+	c.JSON(http.StatusOK, models.Response{
+		StatusCode: consts.StatusCode_Ok,
+		Message:    "get messages ok",
 		Data:       string(respBytes),
 	})
 }

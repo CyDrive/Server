@@ -15,6 +15,7 @@ import (
 
 	"github.com/CyDrive/consts"
 	"github.com/CyDrive/models"
+	"github.com/gin-gonic/gin"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -40,6 +41,23 @@ func PasswordHash(password string) string {
 		res += fmt.Sprint(v)
 	}
 	return res
+}
+
+// data is optional
+// it should be always at most one data
+func Response(c *gin.Context, statusCode consts.StatusCode, message string, data ...string) {
+	if data == nil || len(data) == 0 {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: statusCode,
+			Message:    message,
+		})
+	} else {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: statusCode,
+			Message:    message,
+			Data:       data[0],
+		})
+	}
 }
 
 func PackRange(begin, end int64) string {

@@ -22,6 +22,8 @@ const (
 	AccountStoreTypeMem   AccountStoreType = "mem"
 	AccountStoreTypeMySQL AccountStoreType = "mysql"
 
+	MessageStoreTypeMem MessageStoreType = "mem"
+
 	EnvTypeLocal  = "local"
 	EnvTypeRemote = "remote"
 
