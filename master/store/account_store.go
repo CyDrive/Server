@@ -174,6 +174,7 @@ func (store *MemStore) save() {
 type RdbStore struct {
 	db *gorm.DB
 	accountUsageCache sync.Map
+}
 
 func NewRdbStore(config config.Config) *RdbStore {
 	store.db, _ = gorm.Open("mysql", config.PackDSN())
