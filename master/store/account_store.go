@@ -190,7 +190,7 @@ func (store *RdbStore) AddAccount(account *models.Account) error {
 		return err
 	}
 
-	if store.db.Create(account).Error != nil{
+	if store.db.Create(accountOrm).Error != nil{
 		return fmt.Errorf("email %v has been registered", account.Email)
 	}
 
