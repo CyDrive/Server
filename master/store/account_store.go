@@ -177,6 +177,7 @@ type RdbStore struct {
 }
 
 func NewRdbStore(config config.Config) *RdbStore {
+	store := RdbStore{}
 	store.db, _ = gorm.Open("mysql", config.PackDSN())
 
 	go store.MinitorUsageCache(5)
