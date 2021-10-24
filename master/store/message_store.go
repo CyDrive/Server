@@ -7,8 +7,8 @@ import (
 )
 
 type MessageStore interface {
-	GetMessageByTime(userId int32, count int32, time time.Time) []*models.Message
-	PutMessage(message *models.Message)
+	GetMessagesByTime(userId int32, count int32, time time.Time) []*models.Message
+	SaveMessage(message *models.Message)
 }
 
 type MessageStoreMem struct {
@@ -21,7 +21,7 @@ func NewMessageStoreMem() *MessageStoreMem {
 	}
 }
 
-func (store MessageStoreMem) GetMessageByTime(userId int32, count int32, time time.Time) []*models.Message {
+func (store MessageStoreMem) GetMessagesByTime(userId int32, count int32, time time.Time) []*models.Message {
 	messageList, ok := store.messageMap[userId]
 	if !ok {
 		return []*models.Message{}
@@ -46,7 +46,7 @@ func (store MessageStoreMem) GetMessageByTime(userId int32, count int32, time ti
 	}
 }
 
-func (store MessageStoreMem) PutMessage(message *models.Message) {
+func (store MessageStoreMem) SaveMessage(message *models.Message) {
 	receiverId := message.Receiver
 	_, ok := store.messageMap[receiverId]
 	if !ok {

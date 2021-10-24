@@ -502,7 +502,7 @@ func GetMessageHandle(c *gin.Context) {
 
 	messages := GetMessageManager().
 		GetMessageStore().
-		GetMessageByTime(account.Id,
+		GetMessagesByTime(account.Id,
 			int32(count),
 			time.Unix(lastTime, 0))
 

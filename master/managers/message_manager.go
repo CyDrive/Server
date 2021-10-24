@@ -23,7 +23,7 @@ func NewMessageManager(messageStore store.MessageStore) *MessageManager {
 }
 
 func (mgr *MessageManager) GetHub(accountId int32) (*Hub, bool) {
-	hubI, ok := mgr.hubMap.LoadOrStore(accountId, NewHub())
+	hubI, ok := mgr.hubMap.LoadOrStore(accountId, NewHub(mgr.messageStore))
 	hub := hubI.(*Hub)
 
 	// it's the first connection of this account
@@ -48,14 +48,19 @@ type Hub struct {
 	unregisterQueue chan int32
 
 	connMap map[int32]*MessageConn
+
+	// store
+	messageStore store.MessageStore
 }
 
-func NewHub() *Hub {
+func NewHub(messageStore store.MessageStore) *Hub {
 	hub := Hub{
 		messageQueue:    make(chan *models.Message, 10),
 		registerQueue:   make(chan *MessageConn, 3),
 		unregisterQueue: make(chan int32, 1),
 		connMap:         map[int32]*MessageConn{},
+
+		messageStore: messageStore,
 	}
 
 	return &hub
@@ -83,6 +88,8 @@ func (hub *Hub) deliverMessage() {
 			delete(hub.connMap, deviceId)
 
 		case message := <-hub.messageQueue:
+			hub.messageStore.SaveMessage(message)
+
 			// it's a broadcast message
 			if message.Receiver <= 0 {
 				for id, conn := range hub.connMap {
