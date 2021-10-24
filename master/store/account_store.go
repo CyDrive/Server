@@ -180,18 +180,24 @@ func NewRdbStore(config config.Config) *RdbStore {
 	store := RdbStore{}
 	store.db, _ = gorm.Open("mysql", config.PackDSN())
 
-	go store.MinitorUsageCache(5)
+	go store.MonitorUsageCache(5)
 	return &store
 }
 
 func (store *RdbStore) AddAccount(account *models.Account) error {
+	accountOrm, err := account.ToORM(context.Background())
+	if err != nil{
+		return err
+	}
+
 	if store.db.Create(account).Error != nil{
 		return fmt.Errorf("email %v has been registered", account.Email)
 	}
+
 	return nil
 }
 
-func (store *RdbStore) MinitorUsageCache(delay int64) error {
+func (store *RdbStore) MonitorUsageCache(delay int64) error {
 	for {
 		store.accountUsageCache.Range(func(key, value interface{}) bool	 {
 			email := key.(string)
