@@ -173,11 +173,9 @@ func (store *MemStore) save() {
 // Store users in a relational db
 type RdbStore struct {
 	db *gorm.DB
-	accountUsageCache map[string]int64
-}
+	accountUsageCache sync.Map
 
 func NewRdbStore(config config.Config) *RdbStore {
-	store := RdbStore{accountUsageCache: make(map[string]int64)}
 	store.db, _ = gorm.Open("mysql", config.PackDSN())
 
 	go store.MinitorUsageCache(5)
@@ -193,19 +191,17 @@ func (store *RdbStore) AddAccount(account *models.Account) error {
 
 func (store *RdbStore) MinitorUsageCache(delay int) error {
 	for {
-		for email,usage := range store.accountUsageCache{
+		store.accountUsageCache.Range(func(key, value interface{}) 	 {
+			email := key.(string)
+			usage := value.(int64)
+			store.accountUsageCache.Delete(email)
+
 			if usage == 0{
-				continue
+				account, _ := store.GetAccountByEmail(email)
+				store.db.models(account).Update("Usage", account.Usage)
 			}
-
-			account, err := store.GetAccountByEmail(email)
-			if err != nil {
-				return err
-			}
-			store.db.models(account).Update("Usage", account.Usage)
-		}
-
-		store.accountUsageCache := make(map[string]int64)
+			return true
+		})
 		time.Sleep(delay*time.Second)
 	}
 } 
@@ -219,7 +215,7 @@ func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
 
 	realAccount, _ := account.ToPB(context.Background())
 	
-	usage, ok := store.accountUsageCache[email]
+	usage, ok := store.accountUsageCache.load(email)
 	if ok {
 		realAccount.Usage += usage
 	}
@@ -229,26 +225,22 @@ func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
 
 
 func (store *RdbStore) AddUsage(email string, usage int64) error {
-	_, ok := store.accountUsageCache[email]
+	oldUsage, ok := store.accountUsageCache.load(email)
 
 	if ok {
-		store.accountUsageCache[email] += usage
+		store.accountUsageCache.Store(email, oldUsage + usage)
 	}else{
-		store.accountUsageCache[email] = usage
+		store.accountUsageCache.Store(email, usage)
 	}
 
 	return nil
 }
 
 func (store *RdbStore) ExpandCap(email string, newCap int64) error {
-	account, err := store.GetAccountByEmail(email)
-	if err != nil {
+	err := store.db.Table("accounnts").Where("email = ?", email).Update("Cap", newCap).Error
+
+	if err != nil{
 		return err
-	}
-	
-	old := account.Cap
-	if old != newCap {
-		store.db.models(account).Update("Cap", newCap)
 	}
 
 	return nil
