@@ -185,26 +185,25 @@ func NewRdbStore(config config.Config) *RdbStore {
 }
 
 func (store *RdbStore) AddAccount(account *models.Account) error {
-	if store.db.Create(account).Err != nil{
+	if store.db.Create(account).Error != nil{
 		return fmt.Errorf("email %v has been registered", account.Email)
 	}
 	return nil
 }
 
-func (store *RdbStore) MinitorUsageCache(delay int) error {
+func (store *RdbStore) MinitorUsageCache(delay int64) error {
 	for {
-		store.accountUsageCache.Range(func(key, value interface{}) 	 {
+		store.accountUsageCache.Range(func(key, value interface{}) bool	 {
 			email := key.(string)
 			usage := value.(int64)
-			store.accountUsageCache.Delete(email)
 
-			if usage == 0{
-				account, _ := store.GetAccountByEmail(email)
-				store.db.models(account).Update("Usage", account.Usage)
-			}
+			store.accountUsageCache.Delete(email)
+			store.db.Model(models.AccountORM{}).Where("email = ?", email).UpdateColumn("Usage", gorm.Expr("usage + ?", usage))
+
 			return true
 		})
-		time.Sleep(delay*time.Second)
+
+		time.Sleep(delay * time.Second)
 	}
 } 
 
@@ -217,7 +216,8 @@ func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
 
 	realAccount, _ := account.ToPB(context.Background())
 	
-	usage, ok := store.accountUsageCache.load(email)
+	usage, ok := store.accountUsageCache.Load(email)
+
 	if ok {
 		realAccount.Usage += usage
 	}
@@ -227,7 +227,7 @@ func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
 
 
 func (store *RdbStore) AddUsage(email string, usage int64) error {
-	oldUsage, ok := store.accountUsageCache.load(email)
+	oldUsage, ok := store.accountUsageCache.Load(email)
 
 	if ok {
 		store.accountUsageCache.Store(email, oldUsage + usage)
@@ -239,7 +239,7 @@ func (store *RdbStore) AddUsage(email string, usage int64) error {
 }
 
 func (store *RdbStore) ExpandCap(email string, newCap int64) error {
-	err := store.db.Table("accounnts").Where("email = ?", email).Update("Cap", newCap).Error
+	err := store.db.Model(models.AccountORM{}).Where("email = ?", email).Update("Cap", newCap).Error
 
 	if err != nil{
 		return err
