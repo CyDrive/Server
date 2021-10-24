@@ -203,7 +203,7 @@ func (store *RdbStore) MinitorUsageCache(delay int64) error {
 			return true
 		})
 
-		time.Sleep(delay * time.Second)
+		time.Sleep(time.Duration(delay) * time.Second)
 	}
 } 
 
@@ -216,7 +216,8 @@ func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
 
 	realAccount, _ := account.ToPB(context.Background())
 	
-	usage, ok := store.accountUsageCache.Load(email)
+	value, ok := store.accountUsageCache.Load(email)
+	usage := value.(int64)
 
 	if ok {
 		realAccount.Usage += usage
@@ -227,7 +228,8 @@ func (store *RdbStore) GetAccountByEmail(email string) *models.Account {
 
 
 func (store *RdbStore) AddUsage(email string, usage int64) error {
-	oldUsage, ok := store.accountUsageCache.Load(email)
+	value, ok := store.accountUsageCache.Load(email)
+	oldUsage := value.(int64)
 
 	if ok {
 		store.accountUsageCache.Store(email, oldUsage + usage)
