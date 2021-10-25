@@ -10,10 +10,10 @@
 | Module |    Submodule    |       Feature        |
 | :----: | :-------------: | :------------------: |
 | Master | Storage Service | Serve files by nodes |
+| Master | Message Service | Send/Recv messages in memory |
 
 ## In-Plan Features
 | Module |    Submodule    |           Feature            |
 | :----: | :-------------: | :--------------------------: |
-| Master | Message Service | Send/Recv messages in memory |
 | Master |  Cache Manager  |    Cache the nodes' files    |
 | Master | Storage Service |        Group readings        |
