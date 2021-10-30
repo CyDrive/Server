@@ -88,9 +88,6 @@ func (hub *Hub) deliverMessage() {
 		select {
 		case conn := <-hub.registerQueue:
 			hub.connMap[conn.DeviceId] = conn
-			conn.PushQueue <- &models.Message{
-				Content: "this is a test message",
-			}
 
 		case deviceId := <-hub.unregisterQueue:
 			delete(hub.connMap, deviceId)
