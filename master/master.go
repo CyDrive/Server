@@ -116,6 +116,8 @@ func (m *Master) Start() {
 	router := gin.Default()
 	memStore := memstore.NewStore([]byte("ProjectMili"))
 	router.Use(sessions.SessionsMany([]string{"account"}, memStore))
+	router.Use(SetRequestId(router))
+	router.Use(Log(router))
 	router.Use(LoginAuth(router))
 	// router.Use(SetFileInfo())
 
@@ -124,15 +126,14 @@ func (m *Master) Start() {
 
 	router.GET("/list/*path", ListHandle)
 
-	// router.GET("/file_info/*path", GetFileInfoHandle)
-	// router.PUT("/file_info/*path", PutFileInfoHandle)
-
+	// storage service
 	router.GET("/file/*path", DownloadHandle)
 	router.PUT("/file/*path", UploadHandle)
 	router.DELETE("/file/*path", DeleteHandle)
 
-	router.GET("/message")
-	router.PUT("/message")
+	// message service
+	router.GET("/message_service", ConnectMessageServiceHandle)
+	router.GET("/message", GetMessageHandle)
 
 	go router.Run(consts.HttpListenPortStr)
 

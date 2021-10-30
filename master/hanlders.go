@@ -21,7 +21,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Account handlers
+// Account services
 func RegisterHandle(c *gin.Context) {
 	var req models.RegisterRequest
 	reqBytes, err := ioutil.ReadAll(c.Request.Body)
@@ -145,6 +145,7 @@ func LoginHandle(c *gin.Context) {
 	})
 }
 
+// Storage services
 func ListHandle(c *gin.Context) {
 	userI, _ := c.Get("account")
 	account := userI.(*models.Account)
@@ -453,51 +454,71 @@ func DeleteHandle(c *gin.Context) {
 	})
 }
 
-// message service
+// Message service
 var (
-	upGrader = websocket.Upgrader{}
+	upGrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
 )
 
-// queries: int32 device_id, int64 time, int32 count
-func GetMessageHandle(c *gin.Context) {
+func ConnectMessageServiceHandle(c *gin.Context) {
+	conn, err := upGrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to establish websocket connection, err=%+v", err)
+		log.Errorf(errMsg)
+		utils.Response(c, consts.StatusCode_InternalError, errMsg)
+		return
+	}
+
 	accountI, _ := c.Get("account")
 	account := accountI.(*models.Account)
 
 	deviceIdStr := c.Query("device_id")
 	deviceId, err := strconv.ParseInt(deviceIdStr, 10, 32)
-	if err != nil {
+	if err != nil || deviceId <= 0 {
 		utils.Response(c, consts.StatusCode_InvalidParameters, "invalid device_id")
 		return
 	}
 
-	hub, ok := GetMessageManager().GetHub(account.Id)
-	isConnectRequest := !ok
-	if !ok {
-		conn, _ := upGrader.Upgrade(c.Writer, c.Request, nil)
-		hub.Register(
-			managers.NewMessageConn(hub, int32(deviceId), conn))
-	}
+	hub := GetMessageManager().GetHub(account.Id)
+	hub.Register(
+		managers.NewMessageConn(hub, int32(deviceId), conn))
+}
+
+// queries: int64 time, int32 count
+func GetMessageHandle(c *gin.Context) {
+	accountI, _ := c.Get("account")
+	account := accountI.(*models.Account)
 
 	timeStr := c.Query("time")
 	countStr := c.Query("count")
 
-	// it's a connecting request
-	if isConnectRequest && len(timeStr) == 0 && len(countStr) == 0 {
-		utils.Response(c, consts.StatusCode_Ok, "connected")
-		return
+	var (
+		count    int64 = 5
+		lastTime int64 = time.Now().Unix()
+		err      error
+	)
+
+	if len(timeStr) > 0 {
+		lastTime, err = strconv.ParseInt(timeStr, 10, 64)
+		if err != nil {
+			utils.Response(c,
+				consts.StatusCode_InvalidParameters,
+				fmt.Sprintf("failed to parse parameter time=%+v, err=%+v", timeStr, err))
+			return
+		}
 	}
 
-	lastTime, err := strconv.ParseInt(timeStr, 10, 64)
-	if err != nil {
-		utils.Response(c,
-			consts.StatusCode_InvalidParameters, err.Error())
-		return
-	}
-	count, err := strconv.ParseInt(countStr, 10, 32)
-	if err != nil {
-		utils.Response(c,
-			consts.StatusCode_InvalidParameters, err.Error())
-		return
+	if len(countStr) > 0 {
+		count, err = strconv.ParseInt(countStr, 10, 32)
+		if err != nil {
+			utils.Response(c,
+				consts.StatusCode_InvalidParameters,
+				fmt.Sprintf("failed to parse parameter count=%+v, err=%+v", countStr, err))
+			return
+		}
 	}
 
 	messages := GetMessageManager().
@@ -510,11 +531,8 @@ func GetMessageHandle(c *gin.Context) {
 		Messages: messages,
 	}
 
-	respBytes, _ := utils.GetJsonEncoder().Marshal(&resp)
-
-	c.JSON(http.StatusOK, models.Response{
-		StatusCode: consts.StatusCode_Ok,
-		Message:    "get messages ok",
-		Data:       string(respBytes),
-	})
+	utils.ResponseData(c,
+		consts.StatusCode_Ok,
+		"get message ok",
+		&resp)
 }

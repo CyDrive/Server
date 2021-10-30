@@ -238,9 +238,11 @@ func (ft *FileTransferor) GcMaintenance() {
 			return true
 		})
 
-		log.Infof("task should be dropped: %+v", tasksShouldBeDeleted)
-		for _, task := range tasksShouldBeDeleted {
-			ft.deleteTask(task.Id)
+		if len(tasksShouldBeDeleted) > 0 {
+			log.Infof("task should be dropped: %+v", tasksShouldBeDeleted)
+			for _, task := range tasksShouldBeDeleted {
+				ft.deleteTask(task.Id)
+			}
 		}
 
 		time.Sleep(5 * time.Second)

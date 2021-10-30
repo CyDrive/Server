@@ -22,7 +22,7 @@ func NewMessageManager(messageStore store.MessageStore) *MessageManager {
 	}
 }
 
-func (mgr *MessageManager) GetHub(accountId int32) (*Hub, bool) {
+func (mgr *MessageManager) GetHub(accountId int32) *Hub {
 	hubI, ok := mgr.hubMap.LoadOrStore(accountId, NewHub(mgr.messageStore))
 	hub := hubI.(*Hub)
 
@@ -30,10 +30,11 @@ func (mgr *MessageManager) GetHub(accountId int32) (*Hub, bool) {
 	// create a new hub to serve
 	// need to start a goroutine to deliver messages
 	if !ok {
+		log.Infof("create new hub for accountId=%+v", accountId)
 		go hub.deliverMessage()
 	}
 
-	return hub, ok
+	return hub
 }
 
 func (mgr *MessageManager) GetMessageStore() store.MessageStore {
@@ -67,10 +68,14 @@ func NewHub(messageStore store.MessageStore) *Hub {
 }
 
 func (hub *Hub) Register(conn *MessageConn) {
+	log.Infof("register new conn, deviceId=%+v", conn.DeviceId)
 	hub.registerQueue <- conn
+	go conn.SendMessageHandle()
+	go conn.PushMessage()
 }
 
 func (hub *Hub) Unregister(deviceId int32) {
+	log.Infof("unregister conn, deviceId=%+v", deviceId)
 	hub.unregisterQueue <- deviceId
 }
 
@@ -83,11 +88,15 @@ func (hub *Hub) deliverMessage() {
 		select {
 		case conn := <-hub.registerQueue:
 			hub.connMap[conn.DeviceId] = conn
+			conn.PushQueue <- &models.Message{
+				Content: "this is a test message",
+			}
 
 		case deviceId := <-hub.unregisterQueue:
 			delete(hub.connMap, deviceId)
 
 		case message := <-hub.messageQueue:
+			log.Infof("storing new message=%+v...", message)
 			hub.messageStore.SaveMessage(message)
 
 			// it's a broadcast message
@@ -132,18 +141,22 @@ func (conn *MessageConn) SendMessageHandle() {
 	for {
 		msgType, messageBytes, err := conn.Conn.ReadMessage()
 		if err != nil {
-			log.Errorf("failed to read message, err=%+v", err)
+			log.Errorf("failed to read message, err=%+v, will close this connection", err)
 			return
 		}
 
+		log.Infof("client sends message with type=%+v", msgType)
+
 		switch msgType {
-		case websocket.BinaryMessage:
+		case websocket.TextMessage:
 			var message models.Message
 			err = utils.GetJsonDecoder().Unmarshal(messageBytes, &message)
 			if err != nil {
 				log.Errorf("failed to unmarshal the message, messageBytes=%+v", string(messageBytes))
 				return
 			}
+
+			log.Infof("client sends message=%+v", message)
 
 			conn.Hub.PushMessage(&message)
 		}
@@ -152,19 +165,19 @@ func (conn *MessageConn) SendMessageHandle() {
 
 func (conn *MessageConn) PushMessage() {
 	defer func() {
-		conn.Hub.Unregister(conn.DeviceId)
 		close(conn.PushQueue)
-		conn.Conn.Close()
 	}()
 
 	for message := range conn.PushQueue {
+		log.Infof("push message=%+v", message)
+
 		messageBytes, err := utils.GetJsonEncoder().Marshal(message)
 		if err != nil {
 			log.Errorf("failed to marshal message, message=%+v, err=%+v", message, err)
 			return
 		}
 
-		err = conn.Conn.WriteMessage(websocket.BinaryMessage,
+		err = conn.Conn.WriteMessage(websocket.TextMessage,
 			messageBytes)
 
 		if err != nil {
