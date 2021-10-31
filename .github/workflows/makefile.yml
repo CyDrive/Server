@@ -20,12 +20,18 @@ jobs:
 
     - name: Setup protoc
       uses: arduino/setup-protoc@v1.1.2
-
-    - name: Race check
-      run: make check
+    
+    - name: Install protobuf plugins
+      run: |
+        go install google.golang.org/protobuf/cmd/protoc-gen-go
+        go install github.com/infobloxopen/protoc-gen-gorm
+        go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
 
     - name: Re-generate proto-defined files
       run: make update_proto
+      
+    - name: Race check
+      run: make check
       
     - name: Build
       run: make all

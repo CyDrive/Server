@@ -6,16 +6,13 @@ package models;
 
 import "google/protobuf/timestamp.proto";
 import "consts/enums.proto";
-import "options/gorm.proto";
 
 message Message {
-    option (gorm.opts).ormable = true;
-
-    int64 id = 1 [(gorm.field).tag = {primary_key: true}];
+    int64 id = 1;
     int32 sender = 2;
     int32 receiver = 3;
     consts.MessageType type = 4;
     string content = 5;
     google.protobuf.Timestamp sended_at = 6;
-    int32 Expire = 7;
+    int32 expire = 7;
 }

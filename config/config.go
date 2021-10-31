@@ -9,6 +9,7 @@ var (
 type Config struct {
 	Ipv4Addr         string `yaml:"ipv4_addr"`
 	AccountStoreType string `yaml:"account_store_type"`
+	MessageStoreType string `yaml:"message_store_type"`
 
 	// only for relational database
 	DatabaseAddr     string `yaml:"database_addr,omitempty"`

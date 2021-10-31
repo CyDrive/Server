@@ -1,4 +1,4 @@
-package node_manager
+package managers
 
 import (
 	"fmt"

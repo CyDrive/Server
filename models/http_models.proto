@@ -4,8 +4,9 @@ option go_package = "github.com/CyDrive/models";
 option csharp_namespace = "CyDrive.Models";
 package models;
 
-import "models/file_info.proto";
 import "consts/enums.proto";
+import "models/file_info.proto";
+import "models/message.proto";
 
 message Response {
     consts.StatusCode status_code = 1;
@@ -53,3 +54,6 @@ message DeleteResponse {
     models.FileInfo file_info = 1;
 }
 
+message GetMessageResponse {
+    repeated models.Message messages = 1;
+}

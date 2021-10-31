@@ -8,8 +8,6 @@ all_update: update_proto all
 check: master_check node_check
 
 pre:
-	@go install google.golang.org/protobuf/cmd/protoc-gen-go
-	@go install github.com/infobloxopen/protoc-gen-gorm
 	@go mod tidy
 
 update_proto: pre

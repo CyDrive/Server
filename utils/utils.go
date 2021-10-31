@@ -15,7 +15,9 @@ import (
 
 	"github.com/CyDrive/consts"
 	"github.com/CyDrive/models"
+	"github.com/gin-gonic/gin"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -40,6 +42,27 @@ func PasswordHash(password string) string {
 		res += fmt.Sprint(v)
 	}
 	return res
+}
+
+func Response(c *gin.Context, statusCode consts.StatusCode, message string) {
+	c.JSON(http.StatusOK, models.Response{
+		StatusCode: statusCode,
+		Message:    message,
+	})
+}
+
+func ResponseData(c *gin.Context, statusCode consts.StatusCode, message string, data proto.Message) {
+	dataBytes, err := GetJsonEncoder().Marshal(data)
+	if err != nil {
+		Response(c, consts.StatusCode_InternalError, fmt.Sprintf("failed to marshal data=%+v", data))
+		return
+	}
+
+	c.JSON(http.StatusOK, models.Response{
+		StatusCode: statusCode,
+		Message:    message,
+		Data:       string(dataBytes),
+	})
 }
 
 func PackRange(begin, end int64) string {

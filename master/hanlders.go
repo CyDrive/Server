@@ -6,19 +6,22 @@ import (
 	"net/http"
 	"net/mail"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
+	"github.com/CyDrive/master/managers"
 	"github.com/CyDrive/models"
 	"github.com/CyDrive/utils"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 )
 
-// Account handlers
+// Account services
 func RegisterHandle(c *gin.Context) {
 	var req models.RegisterRequest
 	reqBytes, err := ioutil.ReadAll(c.Request.Body)
@@ -142,6 +145,7 @@ func LoginHandle(c *gin.Context) {
 	})
 }
 
+// Storage services
 func ListHandle(c *gin.Context) {
 	userI, _ := c.Get("account")
 	account := userI.(*models.Account)
@@ -186,7 +190,7 @@ func GetFileInfoHandle(c *gin.Context) {
 
 	filePath := c.Param("path")
 	filePath = strings.Trim(filePath, "/")
-	absFilePath := utils.AccountFilePath(account,filePath)
+	absFilePath := utils.AccountFilePath(account, filePath)
 
 	fileInfo, err := GetEnv().Stat(absFilePath)
 	if err != nil {
@@ -281,7 +285,7 @@ func DownloadHandle(c *gin.Context) {
 	filePath := c.Param("path")
 
 	// absolute filepath
-	filePath = utils.AccountFilePath(account,filePath)
+	filePath = utils.AccountFilePath(account, filePath)
 	fileInfo, _ := GetEnv().Stat(filePath)
 
 	if fileInfo.IsDir {
@@ -333,7 +337,7 @@ func UploadHandle(c *gin.Context) {
 
 	filePath := c.Param("path")
 
-	filePath = utils.AccountFilePath(account,filePath)
+	filePath = utils.AccountFilePath(account, filePath)
 	fileDir := filepath.Dir(filePath)
 	if err := GetEnv().MkdirAll(fileDir, 0666); err != nil {
 		c.JSON(http.StatusOK, models.Response{
@@ -448,4 +452,87 @@ func DeleteHandle(c *gin.Context) {
 		Message:    "deleted",
 		Data:       string(respBytes),
 	})
+}
+
+// Message service
+var (
+	upGrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+)
+
+func ConnectMessageServiceHandle(c *gin.Context) {
+	conn, err := upGrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to establish websocket connection, err=%+v", err)
+		log.Errorf(errMsg)
+		utils.Response(c, consts.StatusCode_InternalError, errMsg)
+		return
+	}
+
+	accountI, _ := c.Get("account")
+	account := accountI.(*models.Account)
+
+	deviceIdStr := c.Query("device_id")
+	deviceId, err := strconv.ParseInt(deviceIdStr, 10, 32)
+	if err != nil || deviceId <= 0 {
+		utils.Response(c, consts.StatusCode_InvalidParameters, "invalid device_id")
+		return
+	}
+
+	hub := GetMessageManager().GetHub(account.Id)
+	hub.Register(
+		managers.NewMessageConn(hub, int32(deviceId), conn))
+}
+
+// queries: int64 time, int32 count
+func GetMessageHandle(c *gin.Context) {
+	accountI, _ := c.Get("account")
+	account := accountI.(*models.Account)
+
+	timeStr := c.Query("time")
+	countStr := c.Query("count")
+
+	var (
+		count    int64 = 5
+		lastTime int64 = time.Now().Unix()
+		err      error
+	)
+
+	if len(timeStr) > 0 {
+		lastTime, err = strconv.ParseInt(timeStr, 10, 64)
+		if err != nil {
+			utils.Response(c,
+				consts.StatusCode_InvalidParameters,
+				fmt.Sprintf("failed to parse parameter time=%+v, err=%+v", timeStr, err))
+			return
+		}
+	}
+
+	if len(countStr) > 0 {
+		count, err = strconv.ParseInt(countStr, 10, 32)
+		if err != nil {
+			utils.Response(c,
+				consts.StatusCode_InvalidParameters,
+				fmt.Sprintf("failed to parse parameter count=%+v, err=%+v", countStr, err))
+			return
+		}
+	}
+
+	messages := GetMessageManager().
+		GetMessageStore().
+		GetMessagesByTime(account.Id,
+			int32(count),
+			time.Unix(lastTime, 0))
+
+	resp := models.GetMessageResponse{
+		Messages: messages,
+	}
+
+	utils.ResponseData(c,
+		consts.StatusCode_Ok,
+		"get message ok",
+		&resp)
 }
