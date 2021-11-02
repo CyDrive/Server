@@ -2,8 +2,11 @@ package utils
 
 import (
 	"math"
+	"math/rand"
 	"sync"
 	"sync/atomic"
+
+	"github.com/CyDrive/consts"
 )
 
 type IdGenerator struct {
@@ -72,4 +75,18 @@ func (idGen *IdGenerator) Ref(id int32) {
 
 func (idGen *IdGenerator) UnRef(id int32) {
 	idGen.idRefMap.Delete(id)
+}
+
+func GenRandomString(length int) string {
+	chars := make([]rune, length)
+	for i := 0; i < length; i++ {
+		chars[i] = rune(rand.Intn(consts.ShortUriCharSetSize))
+		if chars[i] >= 10 {
+			chars[i] += 'a' - 10
+		} else {
+			chars[i] += '0'
+		}
+	}
+
+	return string(chars)
 }
