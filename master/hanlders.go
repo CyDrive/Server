@@ -451,7 +451,7 @@ func DeleteHandle(c *gin.Context) {
 		})
 		return
 	}
-	GetAccountStore().AddUsage(account.Email, fileInfo.Size)
+	GetAccountStore().AddUsage(account.Email, -fileInfo.Size)
 
 	resp := models.DeleteResponse{
 		FileInfo: fileInfo,
