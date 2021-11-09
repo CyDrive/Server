@@ -368,7 +368,7 @@ func UploadHandle(c *gin.Context) {
 	fileInfo := req.FileInfo
 
 	fileDir := filePath
-	if fileInfo.IsDir {
+	if !fileInfo.IsDir {
 		fileDir = filepath.Dir(fileDir)
 	}
 	if err := GetEnv().MkdirAll(fileDir, 0666); err != nil {
