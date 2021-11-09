@@ -25,7 +25,7 @@ type DataTask struct {
 	FileInfo     *models.FileInfo
 	Account      *models.Account
 	StartAt      time.Time
-	Type         types.DataTaskType
+	Type         consts.DataTaskType
 	HasDoneBytes int64
 
 	// filled when client connects to the server
@@ -71,7 +71,7 @@ func (ft *FileTransferor) Listen() {
 	}
 }
 
-func (ft *FileTransferor) CreateTask(clientIp string, fileInfo *models.FileInfo, account *models.Account, taskType types.DataTaskType, doneBytes int64) int32 {
+func (ft *FileTransferor) CreateTask(clientIp string, fileInfo *models.FileInfo, account *models.Account, taskType consts.DataTaskType, doneBytes int64) int32 {
 	taskId := ft.idGen.NextAndRef()
 	// host, _, _ := net.SplitHostPort(clientIp)
 	task := &DataTask{

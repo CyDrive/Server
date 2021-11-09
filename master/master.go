@@ -121,12 +121,14 @@ func (m *Master) Start() {
 	router.Use(LoginAuth(router))
 	// router.Use(SetFileInfo())
 
+	// account service
 	router.POST("/register", RegisterHandle)
 	router.POST("/login", LoginHandle)
-
-	router.GET("/list/*path", ListHandle)
+	router.GET("/account", GetAccountInfo)
 
 	// storage service
+	router.GET("/list/*path", ListHandle)
+
 	router.GET("/file/*path", DownloadHandle)
 	router.PUT("/file/*path", UploadHandle)
 	router.DELETE("/file/*path", DeleteHandle)

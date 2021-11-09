@@ -81,6 +81,7 @@ func UnpackRange(rangeStr string) (int64, int64) {
 func PackSafeAccount(account *models.Account) *models.SafeAccount {
 	return &models.SafeAccount{
 		Id:    account.Id,
+		Email: account.Email,
 		Name:  account.Name,
 		Usage: account.Usage,
 		Cap:   account.Cap,

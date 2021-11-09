@@ -145,6 +145,15 @@ func LoginHandle(c *gin.Context) {
 	})
 }
 
+func GetAccountInfo(c *gin.Context) {
+	accountI, _ := c.Get("account")
+	account := accountI.(*models.Account)
+
+	safeAccount := utils.PackSafeAccount(account)
+
+	utils.ResponseData(c, consts.StatusCode_Ok, "get account info done", safeAccount)
+}
+
 // Storage services
 func ListHandle(c *gin.Context) {
 	userI, _ := c.Get("account")
@@ -336,16 +345,7 @@ func UploadHandle(c *gin.Context) {
 	account := userI.(*models.Account)
 
 	filePath := c.Param("path")
-
 	filePath = utils.AccountFilePath(account, filePath)
-	fileDir := filepath.Dir(filePath)
-	if err := GetEnv().MkdirAll(fileDir, 0666); err != nil {
-		c.JSON(http.StatusOK, models.Response{
-			StatusCode: consts.StatusCode_InternalError,
-			Message:    err.Error(),
-		})
-		return
-	}
 
 	jsonBytes, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
@@ -367,6 +367,22 @@ func UploadHandle(c *gin.Context) {
 
 	fileInfo := req.FileInfo
 
+	fileDir := filePath
+	if !fileInfo.IsDir {
+		fileDir = filepath.Dir(fileDir)
+	}
+	if err := GetEnv().MkdirAll(fileDir, 0666); err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
+		})
+		return
+	}
+	if fileInfo.IsDir {
+		utils.Response(c, consts.StatusCode_Ok, "mkdir done")
+		return
+	}
+
 	// Check account storage capability
 	if account.Usage+fileInfo.Size > account.Cap {
 		c.JSON(http.StatusOK, models.Response{
@@ -378,6 +394,7 @@ func UploadHandle(c *gin.Context) {
 	}
 
 	taskId := GetFileTransferor().CreateTask(c.ClientIP(), fileInfo, account, consts.DataTaskType_Upload, fileInfo.Size)
+	GetAccountStore().AddUsage(account.Email, fileInfo.Size)
 
 	offset := int64(0)
 
@@ -434,6 +451,7 @@ func DeleteHandle(c *gin.Context) {
 		})
 		return
 	}
+	GetAccountStore().AddUsage(account.Email, -fileInfo.Size)
 
 	resp := models.DeleteResponse{
 		FileInfo: fileInfo,
