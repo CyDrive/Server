@@ -345,16 +345,7 @@ func UploadHandle(c *gin.Context) {
 	account := userI.(*models.Account)
 
 	filePath := c.Param("path")
-
 	filePath = utils.AccountFilePath(account, filePath)
-	fileDir := filepath.Dir(filePath)
-	if err := GetEnv().MkdirAll(fileDir, 0666); err != nil {
-		c.JSON(http.StatusOK, models.Response{
-			StatusCode: consts.StatusCode_InternalError,
-			Message:    err.Error(),
-		})
-		return
-	}
 
 	jsonBytes, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
@@ -375,6 +366,22 @@ func UploadHandle(c *gin.Context) {
 	}
 
 	fileInfo := req.FileInfo
+
+	fileDir := filePath
+	if fileInfo.IsDir {
+		fileDir = filepath.Dir(fileDir)
+	}
+	if err := GetEnv().MkdirAll(fileDir, 0666); err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
+		})
+		return
+	}
+	if fileInfo.IsDir {
+		utils.Response(c, consts.StatusCode_Ok, "mkdir done")
+		return
+	}
 
 	// Check account storage capability
 	if account.Usage+fileInfo.Size > account.Cap {
