@@ -145,6 +145,15 @@ func LoginHandle(c *gin.Context) {
 	})
 }
 
+func GetAccountInfo(c *gin.Context) {
+	accountI, _ := c.Get("account")
+	account := accountI.(*models.Account)
+
+	safeAccount := utils.PackSafeAccount(account)
+
+	utils.ResponseData(c, consts.StatusCode_Ok, "get account info done", safeAccount)
+}
+
 // Storage services
 func ListHandle(c *gin.Context) {
 	userI, _ := c.Get("account")
@@ -378,6 +387,7 @@ func UploadHandle(c *gin.Context) {
 	}
 
 	taskId := GetFileTransferor().CreateTask(c.ClientIP(), fileInfo, account, consts.DataTaskType_Upload, fileInfo.Size)
+	GetAccountStore().AddUsage(account.Email, fileInfo.Size)
 
 	offset := int64(0)
 
@@ -434,6 +444,7 @@ func DeleteHandle(c *gin.Context) {
 		})
 		return
 	}
+	GetAccountStore().AddUsage(account.Email, fileInfo.Size)
 
 	resp := models.DeleteResponse{
 		FileInfo: fileInfo,
