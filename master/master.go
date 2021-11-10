@@ -135,6 +135,9 @@ func (m *Master) Start() {
 	router.GET("/message_service", ConnectMessageServiceHandle)
 	router.GET("/message", GetMessageHandle)
 
+	// share
+	router.GET("/share", ShareHandle)
+
 	go router.Run(consts.HttpListenPortStr)
 
 	// RPC services

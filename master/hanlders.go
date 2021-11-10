@@ -536,3 +536,52 @@ func GetMessageHandle(c *gin.Context) {
 		"get message ok",
 		&resp)
 }
+
+func ShareHandle(c *gin.Context) {
+	accountI, _ := c.Get("account")
+	account := accountI.(*models.Account)
+
+	timeStr := c.Query("time")
+	countStr := c.Query("count")
+
+	var (
+		count    int64 = 5
+		lastTime int64 = time.Now().Unix()
+		err      error
+	)
+
+	if len(timeStr) > 0 {
+		lastTime, err = strconv.ParseInt(timeStr, 10, 64)
+		if err != nil {
+			utils.Response(c,
+				consts.StatusCode_InvalidParameters,
+				fmt.Sprintf("failed to parse parameter time=%+v, err=%+v", timeStr, err))
+			return
+		}
+	}
+
+	if len(countStr) > 0 {
+		count, err = strconv.ParseInt(countStr, 10, 32)
+		if err != nil {
+			utils.Response(c,
+				consts.StatusCode_InvalidParameters,
+				fmt.Sprintf("failed to parse parameter count=%+v, err=%+v", countStr, err))
+			return
+		}
+	}
+
+	messages := GetMessageManager().
+		GetMessageStore().
+		GetMessagesByTime(account.Id,
+			int32(count),
+			time.Unix(lastTime, 0))
+
+	resp := models.GetMessageResponse{
+		Messages: messages,
+	}
+
+	utils.ResponseData(c,
+		consts.StatusCode_Ok,
+		"get message ok",
+		&resp)
+}
