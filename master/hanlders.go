@@ -13,6 +13,7 @@ import (
 	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
 	"github.com/CyDrive/master/managers"
+	"github.com/CyDrive/master/store"
 	"github.com/CyDrive/models"
 	"github.com/CyDrive/utils"
 	"github.com/gin-contrib/sessions"
@@ -541,47 +542,119 @@ func ShareHandle(c *gin.Context) {
 	accountI, _ := c.Get("account")
 	account := accountI.(*models.Account)
 
-	timeStr := c.Query("time")
-	countStr := c.Query("count")
+	var req models.ShareRequest
 
-	var (
-		count    int64 = 5
-		lastTime int64 = time.Now().Unix()
-		err      error
-	)
-
-	if len(timeStr) > 0 {
-		lastTime, err = strconv.ParseInt(timeStr, 10, 64)
-		if err != nil {
-			utils.Response(c,
-				consts.StatusCode_InvalidParameters,
-				fmt.Sprintf("failed to parse parameter time=%+v, err=%+v", timeStr, err))
-			return
-		}
+	jsonBytes, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_IoError,
+			Message:    fmt.Sprintf("read request body error: %+v", err),
+		})
+		return
 	}
 
-	if len(countStr) > 0 {
-		count, err = strconv.ParseInt(countStr, 10, 32)
-		if err != nil {
-			utils.Response(c,
-				consts.StatusCode_InvalidParameters,
-				fmt.Sprintf("failed to parse parameter count=%+v, err=%+v", countStr, err))
-			return
-		}
+	if err = utils.GetJsonDecoder().Unmarshal(jsonBytes, &req); err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
+		})
+		return
 	}
 
-	messages := GetMessageManager().
-		GetMessageStore().
-		GetMessagesByTime(account.Id,
-			int32(count),
-			time.Unix(lastTime, 0))
-
-	resp := models.GetMessageResponse{
-		Messages: messages,
+	var share_link = &store.ShareLink{
+		FilePath:        req.FilePath,
+		From:            account.GetId(),
+		Password:        req.Password,
+		LeftAccessCount: req.AccessCount,
+		Expire:          req.Expire,
+		CreatedAt:       time.Now(),
+	}
+	err = GetShareStore().CreateShareLink(share_link, req.To...)
+	if err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
+		})
+		return
 	}
 
-	utils.ResponseData(c,
-		consts.StatusCode_Ok,
-		"get message ok",
-		&resp)
+	resp := models.ShareResponse{
+		Link: share_link.Uri,
+	}
+
+	respBytes, err := utils.GetJsonEncoder().Marshal(&resp)
+	if err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.Response{
+		StatusCode: consts.StatusCode_Ok,
+		Message:    "share link created",
+		Data:       string(respBytes),
+	})
+
+}
+
+func GetSharedFileHandle(c *gin.Context) {
+	accountI, _ := c.Get("account")
+	account := accountI.(*models.Account)
+
+	uri := c.Param("uri")
+	password := c.GetHeader("password")
+	filePath, err := GetShareStore().CheckPermission(uri, account.GetId(), password)
+	if err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_AuthError,
+			Message:    err.Error(),
+		})
+		return
+	}
+	// absolute filepath
+	fileInfo, _ := GetEnv().Stat(filePath)
+
+	if fileInfo.IsDir {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_IoError,
+			Message:    "not a file",
+		})
+		return
+	}
+
+	// range
+	var begin, _ int64 = 0, fileInfo.Size - 1
+	bytesRange := c.GetHeader("Range")
+	if len(bytesRange) > 0 {
+		begin, _ = utils.UnpackRange(bytesRange)
+	}
+
+	uFileInfo := fileInfo
+	uFileInfo.FilePath, _ = filepath.Rel(utils.GetAccountDataDir(account.Id), uFileInfo.FilePath)
+	uFileInfo.FilePath = strings.ReplaceAll(uFileInfo.FilePath, "\\", "/")
+
+	log.Infof("clientIp=%+v", c.ClientIP())
+	taskId := GetFileTransferor().CreateTask(c.ClientIP(), uFileInfo, account, consts.DataTaskType_Download, begin)
+	resp := models.DownloadResponse{
+		NodeAddr: config.IpAddr + consts.FileTransferorListenPortStr,
+		TaskId:   taskId,
+		FileInfo: uFileInfo,
+	}
+	log.Infof("downloadResp=%+v", resp)
+	respBytes, err := utils.GetJsonEncoder().Marshal(&resp)
+	if err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.Response{
+		StatusCode: consts.StatusCode_Ok,
+		Message:    "download task created",
+		Data:       string(respBytes),
+	})
 }

@@ -22,8 +22,8 @@ type ShareLink struct {
 }
 
 type ShareStore interface {
-	CreateShareLink(link *ShareLink) error
-	CheckPermission(uri string, accountId int32, password string) bool
+	CreateShareLink(link *ShareLink, accountIds ...int32) error
+	CheckPermission(uri string, accountId int32, password string) (string, error)
 }
 
 type ShareStoreMem struct {
@@ -105,19 +105,19 @@ func (store *ShareStoreMem) CreateShareLink(link *ShareLink, accountIds ...int32
 	return nil
 }
 
-func (store *ShareStoreMem) CheckPermission(uri string, accountId int32, password string) error {
+func (store *ShareStoreMem) CheckPermission(uri string, accountId int32, password string) (string, error) {
 	linkGroup, ok := store.GetShareLinkGroup(uri)
 	if !ok {
-		return fmt.Errorf("no such share-link, may be expired")
+		return "", fmt.Errorf("no such share-link, may be expired")
 	}
 
 	if linkGroup.IsExpired() {
 		go store.linkGroupMap.Delete(uri)
-		return fmt.Errorf("this share-link has expired")
+		return "", fmt.Errorf("this share-link has expired")
 	}
 
 	if password != linkGroup.Password {
-		return fmt.Errorf("wrong password")
+		return "", fmt.Errorf("wrong password")
 	}
 
 	if len(linkGroup.To) > 0 {
@@ -130,7 +130,7 @@ func (store *ShareStoreMem) CheckPermission(uri string, accountId int32, passwor
 		}
 
 		if !hasPermission {
-			return fmt.Errorf("no access")
+			return "", fmt.Errorf("no access")
 		}
 	}
 
@@ -141,7 +141,7 @@ func (store *ShareStoreMem) CheckPermission(uri string, accountId int32, passwor
 			break
 		} else if leftAccessCount == 0 {
 			go store.linkGroupMap.Delete(uri)
-			return fmt.Errorf("reach access limit, this share-link is invalid")
+			return "", fmt.Errorf("reach access limit, this share-link is invalid")
 		} else {
 			if atomic.CompareAndSwapInt32(&linkGroup.LeftAccessCount, leftAccessCount, leftAccessCount-1) {
 				break
@@ -149,7 +149,7 @@ func (store *ShareStoreMem) CheckPermission(uri string, accountId int32, passwor
 		}
 	}
 
-	return nil
+	return utils.AccountFilePathById(linkGroup.From, linkGroup.FilePath), nil
 }
 
 func (store *ShareStoreMem) GetShareLinkGroup(uri string) (*ShareLinkGroup, bool) {

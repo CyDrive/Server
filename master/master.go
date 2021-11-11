@@ -45,6 +45,10 @@ func GetMessageStore() store.MessageStore {
 	return master.messageStore
 }
 
+func GetShareStore() store.ShareStore {
+	return master.shareStore
+}
+
 func GetEnv() envs.Env {
 	return master.env
 }
@@ -70,6 +74,7 @@ type Master struct {
 	env          envs.Env
 	accountStore store.AccountStore
 	messageStore store.MessageStore
+	shareStore   store.ShareStore
 }
 
 func NewMaster(config config.Config) *Master {
@@ -77,6 +82,7 @@ func NewMaster(config config.Config) *Master {
 		env          envs.Env
 		accountStore store.AccountStore
 		messageStore store.MessageStore
+		shareStore   store.ShareStore
 	)
 
 	if config.EnvType == consts.EnvTypeLocal {
@@ -89,6 +95,8 @@ func NewMaster(config config.Config) *Master {
 	case consts.MessageStoreTypeMem:
 		messageStore = store.NewMessageStoreMem()
 	}
+
+	shareStore = store.NewShareStoreMem()
 
 	if env == nil || accountStore == nil {
 		panic("error when initialize")
@@ -105,6 +113,7 @@ func NewMaster(config config.Config) *Master {
 		env:          env,
 		accountStore: accountStore,
 		messageStore: messageStore,
+		shareStore:   shareStore,
 	}
 
 	return master
@@ -136,7 +145,8 @@ func (m *Master) Start() {
 	router.GET("/message", GetMessageHandle)
 
 	// share
-	router.GET("/share", ShareHandle)
+	router.POST("/share", ShareHandle)
+	router.GET("/share/*uri", GetSharedFileHandle)
 
 	go router.Run(consts.HttpListenPortStr)
 
