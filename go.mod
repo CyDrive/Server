@@ -12,6 +12,7 @@ require (
 	github.com/infobloxopen/protoc-gen-gorm v1.0.1
 	github.com/jinzhu/gorm v1.9.16
 	github.com/sirupsen/logrus v1.8.1
+	golang.org/x/crypto v0.0.0-20211108221036-ceb1ce70b4fa // indirect
 	google.golang.org/genproto v0.0.0-20211021150943-2b146023228c
 	google.golang.org/grpc v1.41.0
 	google.golang.org/protobuf v1.27.1

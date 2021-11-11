@@ -29,6 +29,14 @@ message LoginRequest {
     string password = 2;
 }
 
+message ShareRequest{
+    string file_path = 1;
+    int32 expire = 2;
+    repeated int32 to = 3;
+    string password = 4;
+    int32 access_count = 5;
+}
+
 message GetFileListResponse {
     repeated models.FileInfo file_info_list = 1;
 }
@@ -56,4 +64,8 @@ message DeleteResponse {
 
 message GetMessageResponse {
     repeated models.Message messages = 1;
+}
+
+message ShareResponse{
+    string link = 1;
 }

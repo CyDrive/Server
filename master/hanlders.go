@@ -13,6 +13,7 @@ import (
 	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
 	"github.com/CyDrive/master/managers"
+	"github.com/CyDrive/master/store"
 	"github.com/CyDrive/models"
 	"github.com/CyDrive/utils"
 	"github.com/gin-contrib/sessions"
@@ -553,4 +554,125 @@ func GetMessageHandle(c *gin.Context) {
 		consts.StatusCode_Ok,
 		"get message ok",
 		&resp)
+}
+
+func ShareHandle(c *gin.Context) {
+	accountI, _ := c.Get("account")
+	account := accountI.(*models.Account)
+
+	var req models.ShareRequest
+
+	jsonBytes, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_IoError,
+			Message:    fmt.Sprintf("read request body error: %+v", err),
+		})
+		return
+	}
+
+	if err = utils.GetJsonDecoder().Unmarshal(jsonBytes, &req); err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
+		})
+		return
+	}
+
+	var share_link = &store.ShareLink{
+		FilePath:        req.FilePath,
+		From:            account.GetId(),
+		Password:        req.Password,
+		LeftAccessCount: req.AccessCount,
+		Expire:          req.Expire,
+		CreatedAt:       time.Now(),
+	}
+	err = GetShareStore().CreateShareLink(share_link, req.To...)
+	if err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
+		})
+		return
+	}
+
+	resp := models.ShareResponse{
+		Link: share_link.Uri,
+	}
+
+	respBytes, err := utils.GetJsonEncoder().Marshal(&resp)
+	if err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.Response{
+		StatusCode: consts.StatusCode_Ok,
+		Message:    "share link created",
+		Data:       string(respBytes),
+	})
+
+}
+
+func GetSharedFileHandle(c *gin.Context) {
+	accountI, _ := c.Get("account")
+	account := accountI.(*models.Account)
+
+	uri := c.Param("uri")
+	password := c.GetHeader("password")
+	filePath, err := GetShareStore().CheckPermission(uri, account.GetId(), password)
+	if err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_AuthError,
+			Message:    err.Error(),
+		})
+		return
+	}
+	// absolute filepath
+	fileInfo, _ := GetEnv().Stat(filePath)
+
+	if fileInfo.IsDir {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_IoError,
+			Message:    "not a file",
+		})
+		return
+	}
+
+	// range
+	var begin, _ int64 = 0, fileInfo.Size - 1
+	bytesRange := c.GetHeader("Range")
+	if len(bytesRange) > 0 {
+		begin, _ = utils.UnpackRange(bytesRange)
+	}
+
+	uFileInfo := fileInfo
+	uFileInfo.FilePath, _ = filepath.Rel(utils.GetAccountDataDir(account.Id), uFileInfo.FilePath)
+	uFileInfo.FilePath = strings.ReplaceAll(uFileInfo.FilePath, "\\", "/")
+
+	log.Infof("clientIp=%+v", c.ClientIP())
+	taskId := GetFileTransferor().CreateTask(c.ClientIP(), uFileInfo, account, consts.DataTaskType_Download, begin)
+	resp := models.DownloadResponse{
+		NodeAddr: config.IpAddr + consts.FileTransferorListenPortStr,
+		TaskId:   taskId,
+		FileInfo: uFileInfo,
+	}
+	log.Infof("downloadResp=%+v", resp)
+	respBytes, err := utils.GetJsonEncoder().Marshal(&resp)
+	if err != nil {
+		c.JSON(http.StatusOK, models.Response{
+			StatusCode: consts.StatusCode_InternalError,
+			Message:    err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.Response{
+		StatusCode: consts.StatusCode_Ok,
+		Message:    "download task created",
+		Data:       string(respBytes),
+	})
 }
