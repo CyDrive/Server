@@ -5,7 +5,6 @@ option csharp_namespace = "CyDrive.Models";
 package models;
 
 import "google/protobuf/timestamp.proto";
-import "options/gorm.proto";
 
 message SafeAccount {
     int32 id = 1;
@@ -16,15 +15,14 @@ message SafeAccount {
 }
 
 message Account {
-    option (gorm.opts).ormable = true;
     // Safe part
-    int32 id = 1 [(gorm.field).tag = {primary_key: true}];
-    string email = 2 [(gorm.field).tag = {unique: true, not_null: true}];
-    string name = 3 [(gorm.field).tag = {not_null: true}];
-    int64 usage = 4 [(gorm.field).tag = {default: "0"}];
-    int64 cap = 5 [(gorm.field).tag = {default: "0"}];
+    int32 id = 1;
+    string email = 2;
+    string name = 3;
+    int64 usage = 4;
+    int64 cap = 5;
 
-    string password = 6 [(gorm.field).tag = {not_null: true}];
+    string password = 6;
 
     google.protobuf.Timestamp created_at = 7;
     google.protobuf.Timestamp updated_at = 8;
