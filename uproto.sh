@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# You need protoc-gen-gorm to generate the structs with gorm tags
-# set environment variable $proto_dir to the dir of depended proto files of protoc-gen-gorm
-# follow https://github.com/infobloxopen/protoc-gen-gorm to install protoc-gen-gorm
-# note: new go version may download the repo into $GOPATH/pkg/mod
-
 set -e
 
 proto_dir="third_party/proto"
