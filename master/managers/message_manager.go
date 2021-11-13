@@ -3,11 +3,13 @@ package managers
 import (
 	"sync"
 
+	"github.com/CyDrive/consts"
 	"github.com/CyDrive/master/store"
 	"github.com/CyDrive/models"
 	"github.com/CyDrive/utils"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type MessageManager struct {
@@ -46,9 +48,9 @@ type Hub struct {
 	// so we don't need a lock to protect connMap
 	messageQueue    chan *models.Message
 	registerQueue   chan *MessageConn
-	unregisterQueue chan int32
+	unregisterQueue chan string
 
-	connMap map[int32]*MessageConn
+	connMap map[string]*MessageConn
 
 	// store
 	messageStore store.MessageStore
@@ -58,8 +60,8 @@ func NewHub(messageStore store.MessageStore) *Hub {
 	hub := Hub{
 		messageQueue:    make(chan *models.Message, 10),
 		registerQueue:   make(chan *MessageConn, 3),
-		unregisterQueue: make(chan int32, 1),
-		connMap:         map[int32]*MessageConn{},
+		unregisterQueue: make(chan string, 1),
+		connMap:         map[string]*MessageConn{},
 
 		messageStore: messageStore,
 	}
@@ -70,11 +72,21 @@ func NewHub(messageStore store.MessageStore) *Hub {
 func (hub *Hub) Register(conn *MessageConn) {
 	log.Infof("register new conn, deviceId=%+v", conn.DeviceId)
 	hub.registerQueue <- conn
+	conn.PushQueue <- &models.Message{
+		Id:         0,
+		Sender:     "",
+		SenderName: "CyberBot",
+		Receiver:   "",
+		Type:       consts.MessageType_Text,
+		Content:    "it's a test message",
+		SendedAt:   timestamppb.Now(),
+		Expire:     30,
+	}
 	go conn.SendMessageHandle()
 	go conn.PushMessage()
 }
 
-func (hub *Hub) Unregister(deviceId int32) {
+func (hub *Hub) Unregister(deviceId string) {
 	log.Infof("unregister conn, deviceId=%+v", deviceId)
 	hub.unregisterQueue <- deviceId
 }
@@ -97,7 +109,7 @@ func (hub *Hub) deliverMessage() {
 			hub.messageStore.SaveMessage(message)
 
 			// it's a broadcast message
-			if message.Receiver <= 0 {
+			if message.Receiver == "" {
 				for id, conn := range hub.connMap {
 					if id != message.Sender {
 						conn.PushQueue <- message
@@ -115,12 +127,12 @@ func (hub *Hub) deliverMessage() {
 
 type MessageConn struct {
 	Hub       *Hub
-	DeviceId  int32
+	DeviceId  string
 	Conn      *websocket.Conn
 	PushQueue chan *models.Message
 }
 
-func NewMessageConn(hub *Hub, deviceId int32, conn *websocket.Conn) *MessageConn {
+func NewMessageConn(hub *Hub, deviceId string, conn *websocket.Conn) *MessageConn {
 	return &MessageConn{
 		Hub:       hub,
 		DeviceId:  deviceId,

@@ -7,6 +7,15 @@
 
 在这个设计中，我们假设 Master 是可靠的。
 
+## Node Manager
+我们为 Node 分配负载的单位是 File，这个分配过程中需要考虑：
+- Node 容量
+- Node 负载（带宽，QPS，CPU）
+
+理想状态下我们应当至少有 3 个 Node，并将副本数量配置为 2，因此可以接受 Node 宕机的情况。
+
+Master 需要维护一张 map: filepath -> node_addr 的表，并且会缓存一些信息（文件元信息或文件本身）。
+
 ## Private Storage Node
 这里主要描述流量经过 Master 的设计，我们用一个 server-side streaming RPC 来实现通知和对 Node 的主动管理。例如修改 Node 的状态，通知 Node 发送/接收文件等。Node 收到通知后，建立相应的连接来进行数据传输。没有采用双向流是因为这样我们不需要一直维护大量的长连接，而且可以每个传输任务使用单独的连接，让它们之间不相互影响。另一个原因就是这样的代码可维护性会更高。
 
