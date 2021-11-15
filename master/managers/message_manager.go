@@ -25,7 +25,7 @@ func NewMessageManager(messageStore store.MessageStore) *MessageManager {
 }
 
 func (mgr *MessageManager) GetHub(accountId int32) *Hub {
-	hubI, ok := mgr.hubMap.LoadOrStore(accountId, NewHub(mgr.messageStore))
+	hubI, ok := mgr.hubMap.LoadOrStore(accountId, NewHub(accountId, mgr.messageStore))
 	hub := hubI.(*Hub)
 
 	// it's the first connection of this account
@@ -46,18 +46,20 @@ func (mgr *MessageManager) GetMessageStore() store.MessageStore {
 type Hub struct {
 	// all the 3 queues will be handled in only 1 goroutine
 	// so we don't need a lock to protect connMap
+	accountId       int32
 	messageQueue    chan *models.Message
 	registerQueue   chan *MessageConn
 	unregisterQueue chan string
 
-	connMap map[string]*MessageConn
+	connMap map[string]*MessageConn // map: deviceId -> MessageConn
 
 	// store
 	messageStore store.MessageStore
 }
 
-func NewHub(messageStore store.MessageStore) *Hub {
+func NewHub(accountId int32, messageStore store.MessageStore) *Hub {
 	hub := Hub{
+		accountId:       accountId,
 		messageQueue:    make(chan *models.Message, 10),
 		registerQueue:   make(chan *MessageConn, 3),
 		unregisterQueue: make(chan string, 1),
@@ -91,7 +93,7 @@ func (hub *Hub) Unregister(deviceId string) {
 	hub.unregisterQueue <- deviceId
 }
 
-func (hub *Hub) PushMessage(message *models.Message) {
+func (hub *Hub) HandleMessage(message *models.Message) {
 	hub.messageQueue <- message
 }
 
@@ -106,16 +108,20 @@ func (hub *Hub) deliverMessage() {
 
 		case message := <-hub.messageQueue:
 			log.Infof("storing new message=%+v...", message)
-			hub.messageStore.SaveMessage(message)
 
 			// it's a broadcast message
 			if message.Receiver == "" {
 				for id, conn := range hub.connMap {
 					if id != message.Sender {
-						conn.PushQueue <- message
+						filledMessage := &models.Message{}
+						*filledMessage = *message
+						filledMessage.Receiver = id
+						hub.messageStore.SaveMessage(hub.accountId, filledMessage)
+						conn.PushQueue <- filledMessage
 					}
 				}
 			} else {
+				hub.messageStore.SaveMessage(hub.accountId, message)
 				conn, ok := hub.connMap[message.Receiver]
 				if ok {
 					conn.PushQueue <- message
@@ -126,10 +132,11 @@ func (hub *Hub) deliverMessage() {
 }
 
 type MessageConn struct {
-	Hub       *Hub
-	DeviceId  string
-	Conn      *websocket.Conn
-	PushQueue chan *models.Message
+	Hub        *Hub
+	DeviceId   string
+	DeviceName string // todo: fill the field when establishing connection
+	Conn       *websocket.Conn
+	PushQueue  chan *models.Message
 }
 
 func NewMessageConn(hub *Hub, deviceId string, conn *websocket.Conn) *MessageConn {
@@ -167,7 +174,7 @@ func (conn *MessageConn) SendMessageHandle() {
 
 			log.Infof("client sends message=%+v", message)
 
-			conn.Hub.PushMessage(&message)
+			conn.Hub.HandleMessage(&message)
 		}
 	}
 }
@@ -190,8 +197,8 @@ func (conn *MessageConn) PushMessage() {
 			messageBytes)
 
 		if err != nil {
-			log.Errorf("failed to push message, message=%+v, err=%+v", message, err)
-			return
+			log.Errorf("failed to push message, message=%+v, err=%+v, will retry later", message, err)
+			conn.PushQueue <- message
 		}
 	}
 }

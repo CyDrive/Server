@@ -505,14 +505,17 @@ func ConnectMessageServiceHandle(c *gin.Context) {
 		managers.NewMessageConn(hub, deviceId, conn))
 }
 
-// queries: int64 time, int32 count
+// queries: int64 last_time: ms since epoch, int32 count, string device_id
 func GetMessageHandle(c *gin.Context) {
-	timeStr := c.Query("time")
+	accountI, _ := c.Get("account")
+	account := accountI.(*models.Account)
+
+	timeStr := c.Query("last_time")
 	countStr := c.Query("count")
 	deviceId := c.Query("device_id")
 
 	var (
-		count    int64 = 5
+		count    int64 = 10
 		lastTime int64 = time.Now().Unix()
 		err      error
 	)
@@ -539,9 +542,9 @@ func GetMessageHandle(c *gin.Context) {
 
 	messages := GetMessageManager().
 		GetMessageStore().
-		GetMessagesByTime(deviceId,
+		GetMessagesByTime(account.Id, deviceId,
 			int32(count),
-			time.Unix(lastTime, 0))
+			time.Unix(0, 0).Add(time.Duration(lastTime)*time.Millisecond))
 
 	resp := models.GetMessageResponse{
 		Messages: messages,
