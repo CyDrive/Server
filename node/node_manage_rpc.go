@@ -46,18 +46,17 @@ func (node *StorageNode) HeartBeat() {
 }
 
 func (node *StorageNode) Notify() {
-	stream, err := node.manageClient.Notifier(context.Background(), &rpc.ConnectNotifierRequest{
-		NodeId: node.Id,
-	})
-	if err != nil {
+	// stream, err := node.manageClient.Notifier(context.Background(), &rpc.ConnectNotifierRequest{
+	// 	NodeId: node.Id,
+	// })
+	// if err != nil {
 
-	}
+	// }
 
-	notify, err := stream.Recv()
+	// notify, err := stream.Recv()
 
-	switch notification := notify.Notify.(type) {
-	case *rpc.Notify_CreateSendfileTaskNotify:
-		sendFileNotify := notification.CreateSendfileTaskNotify
-		log.Infof("notify=%+v", sendFileNotify)
-	}
+	// switch notification := notify.Notify.(type) {
+	// case *rpc.Notify_CreateFileTransferTaskNotification:
+
+	// }
 }

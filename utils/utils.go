@@ -92,6 +92,10 @@ func GetAccountDataDir(accountId int32) string {
 	return fmt.Sprintf("data/%d", accountId)
 }
 
+func GetAccountTempDir(accountId int32) string {
+	return fmt.Sprintf("temp/%d", accountId)
+}
+
 func GetDateTimeNow() string {
 	return time.Now().Format(consts.TimeFormat)
 }
@@ -140,6 +144,19 @@ func AccountFilePath(account *models.Account, path string) string {
 
 func AccountFilePathById(accountId int32, path string) string {
 	return strings.Join([]string{GetAccountDataDir(accountId), path}, "/")
+}
+
+func AccountTempFilePathById(accountId int32, path string) string {
+	return strings.Join([]string{GetAccountTempDir(accountId), path}, "/")
+}
+
+func UnpackAccountIdFromPath(filePath string) (int32, error) {
+	entries := strings.Split(filePath, "/")
+	accountId, err := strconv.ParseInt(entries[1], 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int32(accountId), nil
 }
 
 func ShouldCompressed(fileInfo os.FileInfo) bool {

@@ -1,14 +1,16 @@
 package managers
 
 import (
-	"fmt"
+	"os"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/CyDrive/models"
-	"github.com/CyDrive/rpc"
+	"github.com/CyDrive/config"
+	"github.com/CyDrive/network"
+	"github.com/CyDrive/types"
+	"github.com/CyDrive/utils"
 )
 
 var (
@@ -21,6 +23,7 @@ func GenId() int32 {
 
 type Node struct {
 	Id                int32
+	Addr              string
 	Usage             int64
 	Cap               int64
 	LastHeartBeatTime time.Time
@@ -28,9 +31,10 @@ type Node struct {
 	NotifyChan chan interface{}
 }
 
-func NewNode(cap, usage int64) *Node {
+func NewNode(cap, usage int64, addr string) *Node {
 	return &Node{
 		Id:                GenId(),
+		Addr:              addr,
 		Usage:             usage,
 		Cap:               cap,
 		LastHeartBeatTime: time.Now(),
@@ -38,57 +42,24 @@ func NewNode(cap, usage int64) *Node {
 	}
 }
 
-// type NodeElem struct {
-// 	*Node
-// 	index int
-// }
-// type NodePriorityQueue []*NodeElem
-
-// func (q NodePriorityQueue) Len() int { return len(q) }
-
-// func (q NodePriorityQueue) Less(i, j int) bool {
-// 	return q[i].Cap-q[i].Usage > q[j].Cap-q[j].Usage
-// }
-
-// func (q NodePriorityQueue) Swap(i, j int) {
-// 	q[i], q[j] = q[j], q[i]
-// }
-
-// func (q *NodePriorityQueue) Push(x interface{}) {
-// 	node := x.(*Node)
-// 	elem := NodeElem {
-// 		Node: node,
-// 		index: ,
-// 	}
-// 	*q = append(*q, elem)
-// }
-
-// func (q *NodePriorityQueue) Pop() interface{} {
-// 	queue := *q
-// 	n := len(queue)
-// 	elem := queue[n-1]
-
-// 	queue[n-1] = nil
-// 	*q = queue[:n-1]
-
-// 	return elem
-// }
-
 const (
 	HeartBeatTimeout = 500 // in ms
 )
 
 type NodeManager struct {
-	nodeMap *sync.Map
+	nodeMap *sync.Map // map: nodeId -> *Node
 	fileMap *sync.Map // map: filePath -> []*Node
-	nodeNum int32
+
+	fileTransferor *network.FileTransferor
+	nodeNum        int32
 }
 
-func NewNodeManager() *NodeManager {
+func NewNodeManager(fileTransferor *network.FileTransferor) *NodeManager {
 	nodeManager := NodeManager{
-		nodeMap: &sync.Map{},
-		fileMap: &sync.Map{},
-		nodeNum: 0,
+		nodeMap:        &sync.Map{},
+		fileMap:        &sync.Map{},
+		fileTransferor: fileTransferor,
+		nodeNum:        0,
 	}
 
 	return &nodeManager
@@ -96,7 +67,7 @@ func NewNodeManager() *NodeManager {
 
 func (nm *NodeManager) AddNode(node *Node) {
 	nm.nodeMap.Store(node.Id, node)
-	nm.nodeNum++
+	atomic.AddInt32(&nm.nodeNum, 1)
 }
 
 func (nm *NodeManager) GetNode(id int32) *Node {
@@ -139,34 +110,18 @@ func (nm *NodeManager) NodeHealthMaintenance() {
 	// }
 }
 
-func (nm *NodeManager) CreateSendFileTask(accountId int32, req *rpc.CreateSendFileTaskNotify) error {
-	nodeI, ok := nm.fileMap.Load(accountId)
+func (nm *NodeManager) PrepareReadFile(taskId types.TaskId, filePath string) error {
+	nodesI, ok := nm.fileMap.Load(filePath)
 	if !ok {
-		return fmt.Errorf("no such file")
+		return os.ErrNotExist
 	}
 
-	node := nodeI.(*Node)
-	node.NotifyChan <- req
+	// todo: load-balance
+	// now we just pick the first node
+	nodes := nodesI.([]*Node)
+	node := nodes[0]
+	node.NotifyChan <- utils.PackCreateTransferFileTaskNotification(taskId, config.IpAddr, filePath)
 
-	return nil
-}
-
-func (nm *NodeManager) CreateRecvFileTask(account *models.Account, req *rpc.CreateRecvFileTaskNotify) error {
-	nodeI, ok := nm.fileMap.Load(account.Id)
-	var node *Node
-	if !ok {
-		// Assign a node to serve the account
-		node = nm.PickNode()
-		if node == nil {
-			return fmt.Errorf("No node to serve!")
-		}
-		node.Usage += req.FileInfo.Size
-		nm.fileMap.Store(account.Id, node)
-	} else {
-		node = nodeI.(*Node)
-	}
-
-	node.NotifyChan <- req
 	return nil
 }
 

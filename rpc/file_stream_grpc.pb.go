@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 type FileStreamClient interface {
 	SendFile(ctx context.Context, opts ...grpc.CallOption) (FileStream_SendFileClient, error)
 	RecvFile(ctx context.Context, in *RecvFileRequest, opts ...grpc.CallOption) (FileStream_RecvFileClient, error)
+	SendFileInfo(ctx context.Context, in *SendFileInfoRequest, opts ...grpc.CallOption) (*SendFileInfoResponse, error)
 }
 
 type fileStreamClient struct {
@@ -96,12 +97,22 @@ func (x *fileStreamRecvFileClient) Recv() (*RecvFileChunkResponse, error) {
 	return m, nil
 }
 
+func (c *fileStreamClient) SendFileInfo(ctx context.Context, in *SendFileInfoRequest, opts ...grpc.CallOption) (*SendFileInfoResponse, error) {
+	out := new(SendFileInfoResponse)
+	err := c.cc.Invoke(ctx, "/rpc.FileStream/SendFileInfo", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FileStreamServer is the server API for FileStream service.
 // All implementations must embed UnimplementedFileStreamServer
 // for forward compatibility
 type FileStreamServer interface {
 	SendFile(FileStream_SendFileServer) error
 	RecvFile(*RecvFileRequest, FileStream_RecvFileServer) error
+	SendFileInfo(context.Context, *SendFileInfoRequest) (*SendFileInfoResponse, error)
 	mustEmbedUnimplementedFileStreamServer()
 }
 
@@ -114,6 +125,9 @@ func (UnimplementedFileStreamServer) SendFile(FileStream_SendFileServer) error {
 }
 func (UnimplementedFileStreamServer) RecvFile(*RecvFileRequest, FileStream_RecvFileServer) error {
 	return status.Errorf(codes.Unimplemented, "method RecvFile not implemented")
+}
+func (UnimplementedFileStreamServer) SendFileInfo(context.Context, *SendFileInfoRequest) (*SendFileInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendFileInfo not implemented")
 }
 func (UnimplementedFileStreamServer) mustEmbedUnimplementedFileStreamServer() {}
 
@@ -175,13 +189,36 @@ func (x *fileStreamRecvFileServer) Send(m *RecvFileChunkResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _FileStream_SendFileInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendFileInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FileStreamServer).SendFileInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpc.FileStream/SendFileInfo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FileStreamServer).SendFileInfo(ctx, req.(*SendFileInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FileStream_ServiceDesc is the grpc.ServiceDesc for FileStream service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var FileStream_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "rpc.FileStream",
 	HandlerType: (*FileStreamServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "SendFileInfo",
+			Handler:    _FileStream_SendFileInfo_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "SendFile",

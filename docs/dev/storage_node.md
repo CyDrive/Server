@@ -14,7 +14,13 @@
 
 理想状态下我们应当至少有 3 个 Node，并将副本数量配置为 2，因此可以接受 Node 宕机的情况。
 
-Master 需要维护一张 map: filepath -> node_addr 的表，并且会缓存一些信息（文件元信息或文件本身）。
+Master 需要维护一张 map: filepath -> node_addr 的表，并且会缓存一些信息（文件元信息或文件本身）。当需要读取一个文件时，我们利用 grpc 的单向流来实现向 Node 发送通知，然后建立传输文件的任务，底层走 TCP socket 来完成实际的传输任务。
+
+整体的读文件流程如下：
+1. Client 请求下载一个文件
+2. Master 将读文件请求下传到 Env，而底层的 RemoteEnv 通过 NodeManager 发送通知到 Node，与 Node 建立连接
+3. FileTransfer 中存在两个连接：Master 与 Client 之间，Master 与 Node 之间
+4. Master 会把从 Node 拉来的文件写到本地硬盘
 
 ## Private Storage Node
 这里主要描述流量经过 Master 的设计，我们用一个 server-side streaming RPC 来实现通知和对 Node 的主动管理。例如修改 Node 的状态，通知 Node 发送/接收文件等。Node 收到通知后，建立相应的连接来进行数据传输。没有采用双向流是因为这样我们不需要一直维护大量的长连接，而且可以每个传输任务使用单独的连接，让它们之间不相互影响。另一个原因就是这样的代码可维护性会更高。

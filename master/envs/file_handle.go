@@ -1,25 +1,14 @@
 package envs
 
 import (
-	"bytes"
 	"io"
+	"net"
 	"os"
 
-	"github.com/CyDrive/consts"
 	"github.com/CyDrive/models"
 	"github.com/CyDrive/types"
 	"github.com/CyDrive/utils"
 )
-
-type FileHandle interface {
-	Stat() (*models.FileInfo, error)
-	Seek(offset int64, whence int) (int64, error)
-	Truncate(size int64) error
-	Chmod(mode os.FileMode) error
-	Close() error
-	io.Writer
-	io.Reader
-}
 
 type LocalFile struct {
 	path string
@@ -73,21 +62,22 @@ type RemoteFile struct {
 	CallOnStart func(taskId types.TaskId)
 	Err         error
 
-	buffer *bytes.Buffer
+	conn      *net.TCPConn
+	cacheFile *os.File
 }
 
-func NewRemoteFile(flag int, perm os.FileMode) *RemoteFile {
+func NewRemoteFile(flag int, perm os.FileMode, fileInfo *models.FileInfo) *RemoteFile {
 	return &RemoteFile{
-		Flag:   flag,
-		Perm:   perm,
-		buffer: bytes.NewBuffer(make([]byte, 0, consts.RemoteFileHandleBufferSize)),
+		Flag:     flag,
+		Perm:     perm,
+		FileInfo: fileInfo,
 
 		Err: nil,
 	}
 }
 
 func (file *RemoteFile) Stat() (*models.FileInfo, error) {
-	return nil, nil
+	return file.FileInfo, nil
 }
 
 func (file *RemoteFile) Seek(offset int64, whence int) (int64, error) {
@@ -110,11 +100,13 @@ func (file *RemoteFile) Close() error {
 // write the data from node to the buffer
 // the err is always nil
 func (file *RemoteFile) Write(p []byte) (n int, err error) {
-	return file.buffer.Write(p)
+	return 0, nil
 }
 
 func (file *RemoteFile) Read(p []byte) (n int, err error) {
-	n, err = file.buffer.Read(p)
+	if file.cacheFile == nil {
+	}
+	n, err = file.cacheFile.Read(p)
 
 	// we think of the err = io.EOF as err = nil
 	// and always return the file.Err if there're both errors

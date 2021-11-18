@@ -7,7 +7,7 @@ import (
 
 	"github.com/CyDrive/master/managers"
 	"github.com/CyDrive/rpc"
-	"github.com/CyDrive/utils"
+	"google.golang.org/grpc/peer"
 )
 
 type NodeManageServer struct {
@@ -16,7 +16,8 @@ type NodeManageServer struct {
 
 func (s *NodeManageServer) JoinCluster(ctx context.Context, req *rpc.JoinClusterRequest) (*rpc.JoinClusterResponse, error) {
 	nodeManager := GetNodeManager()
-	node := managers.NewNode(req.Capacity, req.Usage)
+	peer, _ := peer.FromContext(ctx)
+	node := managers.NewNode(req.Capacity, req.Usage, peer.Addr.String())
 
 	nodeManager.AddNode(node)
 
@@ -50,11 +51,12 @@ func (s *NodeManageServer) Notifier(req *rpc.ConnectNotifierRequest, stream rpc.
 
 	for notificationI := range notifyChan {
 		switch notification := notificationI.(type) {
-		case *rpc.CreateSendFileTaskNotify:
-			stream.Send(utils.PackCreateSendFileTaskNotify(notification))
-
-		case *rpc.CreateRecvFileTaskNotify:
-			stream.Send(utils.PackCreateRecvFileTaskNotify(notification))
+		case *rpc.CreateFileTransferTaskNotification:
+			stream.Send(&rpc.Notify{
+				Notify: &rpc.Notify_CreateFileTransferTaskNotification{
+					CreateFileTransferTaskNotification: notification,
+				},
+			})
 		}
 	}
 
