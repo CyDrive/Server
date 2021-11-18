@@ -5,6 +5,7 @@ option go_package = "github.com/CyDrive/rpc";
 package rpc;
 
 import "models/file_info.proto";
+import "consts/enums.proto";
 
 service Manage {
   rpc JoinCluster(JoinClusterRequest) returns (JoinClusterResponse) {}
@@ -47,4 +48,5 @@ message CreateFileTransferTaskNotification {
   int32 task_id = 1;
   string addr = 2;
   string file_path = 3;
+  consts.DataTaskType task_type = 4;
 }

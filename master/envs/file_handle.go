@@ -62,8 +62,7 @@ type RemoteFile struct {
 	CallOnStart func(taskId types.TaskId)
 	Err         error
 
-	conn      *net.TCPConn
-	cacheFile *os.File
+	conn *net.TCPConn
 }
 
 func NewRemoteFile(flag int, perm os.FileMode, fileInfo *models.FileInfo) *RemoteFile {

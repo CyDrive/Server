@@ -101,12 +101,7 @@ func NewRemoteEnv(nodeManager *managers.NodeManager, fileTransferor *network.Fil
 }
 
 func (env *RemoteEnv) Open(name string) (types.FileHandle, error) {
-	fileInfoI, ok := env.metaMap.Load(name)
-	if !ok {
-		return nil, os.ErrNotExist
-	}
-
-	fileInfo, ok := fileInfoI.(*models.FileInfo)
+	fileInfo, ok := env.getFileInfo(name)
 	if !ok {
 		return nil, os.ErrNotExist
 	}
@@ -123,7 +118,20 @@ func (env *RemoteEnv) Open(name string) (types.FileHandle, error) {
 }
 
 func (env *RemoteEnv) OpenFile(name string, flag int, perm os.FileMode) (types.FileHandle, error) {
-	panic("unimplemented")
+	fileInfo, ok := env.getFileInfo(name)
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+
+	node := env.nodeManager.GetNodesByFilePath(name)[0]
+	file := NewRemoteFile(flag, perm, fileInfo)
+	task := env.fileTransferor.CreateTask(node.Addr, fileInfo, file, consts.DataTaskType_Download, 0)
+	task.OnConnect = func() {
+		file.conn = task.Conn
+	}
+	env.nodeManager.PrepareReadFile(task.Id, name)
+
+	return file, nil
 }
 
 func (env *RemoteEnv) Stat(name string) (*models.FileInfo, error) {

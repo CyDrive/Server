@@ -125,6 +125,19 @@ func (nm *NodeManager) PrepareReadFile(taskId types.TaskId, filePath string) err
 	return nil
 }
 
+func (nm *NodeManager) PrepareWriteFile(taskId types.TaskId, filePath string) error {
+	nodesI, ok := nm.fileMap.Load(filePath)
+	if !ok {
+		return os.ErrNotExist
+	}
+
+	// todo: load-balance
+	// now we just pick the first node
+	nodes := nodesI.([]*Node)
+	node := nodes[0]
+	node.NotifyChan <- utils.PackCreateTransferFileTaskNotification(taskId, config.IpAddr, filePath)
+}
+
 func (nm *NodeManager) GetNotifyChan(nodeId int32) (<-chan interface{}, bool) {
 	nodeI, ok := nm.nodeMap.Load(nodeId)
 	if !ok {
