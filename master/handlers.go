@@ -494,28 +494,28 @@ func ConnectMessageServiceHandle(c *gin.Context) {
 	accountI, _ := c.Get("account")
 	account := accountI.(*models.Account)
 
-	deviceIdStr := c.Query("device_id")
-	deviceId, err := strconv.ParseInt(deviceIdStr, 10, 32)
-	if err != nil || deviceId <= 0 {
+	deviceId := c.Query("device_id")
+	if err != nil || deviceId == "" {
 		utils.Response(c, consts.StatusCode_InvalidParameters, "invalid device_id")
 		return
 	}
 
 	hub := GetMessageManager().GetHub(account.Id)
 	hub.Register(
-		managers.NewMessageConn(hub, int32(deviceId), conn))
+		managers.NewMessageConn(hub, deviceId, conn))
 }
 
-// queries: int64 time, int32 count
+// queries: int64 last_time: ms since epoch, int32 count, string device_id
 func GetMessageHandle(c *gin.Context) {
 	accountI, _ := c.Get("account")
 	account := accountI.(*models.Account)
 
-	timeStr := c.Query("time")
+	timeStr := c.Query("last_time")
 	countStr := c.Query("count")
+	deviceId := c.Query("device_id")
 
 	var (
-		count    int64 = 5
+		count    int64 = 10
 		lastTime int64 = time.Now().Unix()
 		err      error
 	)
@@ -542,9 +542,9 @@ func GetMessageHandle(c *gin.Context) {
 
 	messages := GetMessageManager().
 		GetMessageStore().
-		GetMessagesByTime(account.Id,
+		GetMessagesByTime(account.Id, deviceId,
 			int32(count),
-			time.Unix(lastTime, 0))
+			time.Unix(0, 0).Add(time.Duration(lastTime)*time.Millisecond))
 
 	resp := models.GetMessageResponse{
 		Messages: messages,

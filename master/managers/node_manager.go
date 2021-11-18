@@ -21,9 +21,8 @@ func GenId() int32 {
 
 type Node struct {
 	Id                int32
-	Cap               int64
-	AssignedVolumn    int64
 	Usage             int64
+	Cap               int64
 	LastHeartBeatTime time.Time
 
 	NotifyChan chan interface{}
@@ -32,9 +31,8 @@ type Node struct {
 func NewNode(cap, usage int64) *Node {
 	return &Node{
 		Id:                GenId(),
-		Cap:               cap,
-		AssignedVolumn:    0,
 		Usage:             usage,
+		Cap:               cap,
 		LastHeartBeatTime: time.Now(),
 		NotifyChan:        make(chan interface{}, 100),
 	}
@@ -81,16 +79,16 @@ const (
 )
 
 type NodeManager struct {
-	nodeMap        *sync.Map
-	accountNodeMap *sync.Map // map: accountId -> node
-	nodeNum        int32
+	nodeMap *sync.Map
+	fileMap *sync.Map // map: filePath -> []*Node
+	nodeNum int32
 }
 
 func NewNodeManager() *NodeManager {
 	nodeManager := NodeManager{
-		nodeMap:        &sync.Map{},
-		accountNodeMap: &sync.Map{},
-		nodeNum:        0,
+		nodeMap: &sync.Map{},
+		fileMap: &sync.Map{},
+		nodeNum: 0,
 	}
 
 	return &nodeManager
@@ -110,13 +108,15 @@ func (nm *NodeManager) GetNode(id int32) *Node {
 	return value.(*Node)
 }
 
-func (nm *NodeManager) GetNodeByAccountId(accountId int32) *Node {
-	nodeI, ok := nm.accountNodeMap.Load(accountId)
+func (nm *NodeManager) GetNodesByFilePath(filePath string) []*Node {
+	nodesI, ok := nm.fileMap.Load(filePath)
 	if !ok {
 		return nil
 	}
 
-	return nodeI.(*Node)
+	nodes := nodesI.([]*Node)
+
+	return nodes
 }
 
 func (nm *NodeManager) DropNode(node *Node) {
@@ -140,7 +140,7 @@ func (nm *NodeManager) NodeHealthMaintenance() {
 }
 
 func (nm *NodeManager) CreateSendFileTask(accountId int32, req *rpc.CreateSendFileTaskNotify) error {
-	nodeI, ok := nm.accountNodeMap.Load(accountId)
+	nodeI, ok := nm.fileMap.Load(accountId)
 	if !ok {
 		return fmt.Errorf("no such file")
 	}
@@ -152,7 +152,7 @@ func (nm *NodeManager) CreateSendFileTask(accountId int32, req *rpc.CreateSendFi
 }
 
 func (nm *NodeManager) CreateRecvFileTask(account *models.Account, req *rpc.CreateRecvFileTaskNotify) error {
-	nodeI, ok := nm.accountNodeMap.Load(account.Id)
+	nodeI, ok := nm.fileMap.Load(account.Id)
 	var node *Node
 	if !ok {
 		// Assign a node to serve the account
@@ -160,8 +160,8 @@ func (nm *NodeManager) CreateRecvFileTask(account *models.Account, req *rpc.Crea
 		if node == nil {
 			return fmt.Errorf("No node to serve!")
 		}
-		atomic.AddInt64(&node.AssignedVolumn, account.Cap)
-		nm.accountNodeMap.Store(account.Id, node)
+		node.Usage += req.FileInfo.Size
+		nm.fileMap.Store(account.Id, node)
 	} else {
 		node = nodeI.(*Node)
 	}
