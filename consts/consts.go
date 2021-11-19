@@ -39,4 +39,6 @@ const (
 	O_NeedFileInfo = 2048
 
 	ShortUriCharSetSize = 36
+
+	ReportFileInfoBatchSize = 100
 )

@@ -1,19 +1,25 @@
 package main
 
 import (
+	"encoding/json"
+	"io/ioutil"
+
 	"github.com/CyDrive/node"
 	"github.com/CyDrive/node/config"
-	"github.com/CyDrive/rpc"
 )
 
 func main() {
-	config := config.Config{
-		MasterAddr: "123.57.39.79:6455",
-		Cap:        5,
-		StorePath:  "./data",
-		Type:       rpc.StorageNodeType_Private,
+	configBytes, err := ioutil.ReadFile("config.json")
+	if err != nil {
+		panic(err)
 	}
-	node := node.NewStorageNode(config)
+	var config config.Config
+	err = json.Unmarshal(configBytes, &config)
+	if err != nil {
+		panic(err)
+	}
+
+	node := node.NewStorageNode(&config)
 
 	node.Start()
 }

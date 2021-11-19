@@ -7,8 +7,10 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
+	"github.com/CyDrive/consts"
 	"github.com/CyDrive/node/config"
 	"github.com/CyDrive/rpc"
 	"github.com/CyDrive/types"
@@ -19,8 +21,9 @@ import (
 
 type StorageNode struct {
 	*config.Config
-	Usage int64
-	Id    int32
+	Id      int32
+	Usage   int64
+	TaskNum int32
 
 	heartBeatTimer   *time.Timer
 	conn             *grpc.ClientConn
@@ -28,7 +31,7 @@ type StorageNode struct {
 	fileStreamClient rpc.FileStreamClient
 }
 
-func NewStorageNode(config config.Config) *StorageNode {
+func NewStorageNode(config *config.Config) *StorageNode {
 	usage, err := utils.DirSize(config.StorePath)
 	if err != nil {
 		panic(err)
@@ -42,7 +45,7 @@ func NewStorageNode(config config.Config) *StorageNode {
 	log.SetOutput(logfile)
 
 	node := StorageNode{
-		Config: &config,
+		Config: config,
 		Usage:  usage,
 
 		heartBeatTimer: time.NewTimer(250 * time.Millisecond),
@@ -55,7 +58,7 @@ func (node *StorageNode) Start() {
 	var err error
 
 	log.Infof("connecting to the gRPC services")
-	node.conn, err = grpc.Dial(node.MasterAddr, grpc.WithInsecure(), grpc.WithBlock())
+	node.conn, err = grpc.Dial(node.MasterAddr+consts.RpcListenPortStr, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		panic(err)
 	}
@@ -63,7 +66,7 @@ func (node *StorageNode) Start() {
 	node.manageClient = rpc.NewManageClient(node.conn)
 	node.fileStreamClient = rpc.NewFileStreamClient(node.conn)
 
-	log.Infof("connections setups")
+	log.Infof("connections setups...")
 	// join cluster
 	for {
 		if err := node.JoinCluster(); err != nil {
@@ -85,8 +88,10 @@ func (node *StorageNode) Start() {
 		}
 	}()
 
+	go node.ReportFileInfos()
+
 	// process notifications
-	node.Notify()
+	node.ProcessNotifications()
 }
 
 func (node *StorageNode) DownloadFile(taskId types.TaskId, filePath, addr string) {
@@ -110,7 +115,13 @@ func (node *StorageNode) DownloadFile(taskId types.TaskId, filePath, addr string
 	defer file.Close()
 
 	log.Infof("start downloading file: %s", filePath)
-	io.Copy(file, conn)
+	written, err := io.Copy(file, conn)
+	if err != nil {
+		os.RemoveAll(filePath)
+		log.Errorf("failed to download file %s, err=%v", filePath, err)
+		return
+	}
+	atomic.AddInt64(&node.Usage, written)
 	log.Infof("download done: %s", filePath)
 }
 

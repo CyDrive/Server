@@ -52,7 +52,7 @@ func (s *NodeManageServer) Notifier(req *rpc.ConnectNotifierRequest, stream rpc.
 
 	for notification := range notifyChan {
 		switch notify := notification.Notify.(type) {
-		case *rpc.Notify_CreateFileTransferTaskNotification:
+		case *rpc.Notify_TransferFileNotification:
 			log.Infof("notify node=%v, notification=%+v", req.NodeId, notify)
 			err := stream.Send(&rpc.Notify{
 				Notify: notify,
@@ -65,4 +65,14 @@ func (s *NodeManageServer) Notifier(req *rpc.ConnectNotifierRequest, stream rpc.
 	}
 
 	return nil
+}
+
+func (s *NodeManageServer) ReportFileInfos(ctx context.Context, req *rpc.ReportFileInfosRequest) (*rpc.ReportFileInfosResponse, error) {
+	for _, fileInfo := range req.FileInfos {
+		GetEnv().SetFileInfo(fileInfo.FilePath, fileInfo)
+	}
+
+	resp := &rpc.ReportFileInfosResponse{}
+
+	return resp, nil
 }
