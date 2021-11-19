@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/CyDrive/consts"
 	"github.com/CyDrive/rpc"
 	log "github.com/sirupsen/logrus"
 )
@@ -46,17 +47,31 @@ func (node *StorageNode) HeartBeat() {
 }
 
 func (node *StorageNode) Notify() {
-	// stream, err := node.manageClient.Notifier(context.Background(), &rpc.ConnectNotifierRequest{
-	// 	NodeId: node.Id,
-	// })
-	// if err != nil {
+	stream, err := node.manageClient.Notifier(context.Background(), &rpc.ConnectNotifierRequest{
+		NodeId: node.Id,
+	})
+	if err != nil {
+		log.Errorf("failed to connect the notifier, err=%v", err)
+		panic("failed to connect the notifier")
+	}
 
-	// }
+	for {
+		notify, err := stream.Recv()
+		if err != nil {
+			log.Errorf("failed to recv notification, err=%v", err)
+		}
 
-	// notify, err := stream.Recv()
+		switch notify := notify.Notify.(type) {
+		case *rpc.Notify_CreateFileTransferTaskNotification:
+			notification := notify.CreateFileTransferTaskNotification
+			log.Infof("recv file transfer notification: %+v", notification)
+			if notification.TaskType == consts.DataTaskType_Download {
+				node.DownloadFile(notification.TaskId, node.StorePath+"/"+notification.FilePath, notification.Addr+consts.FileTransferorListenPortStr)
+			} else if notification.TaskType == consts.DataTaskType_Upload {
+				node.UploadFile(notification.TaskId, node.StorePath+"/"+notification.FilePath, notification.Addr+consts.FileTransferorListenPortStr)
 
-	// switch notification := notify.Notify.(type) {
-	// case *rpc.Notify_CreateFileTransferTaskNotification:
+			}
+		}
+	}
 
-	// }
 }

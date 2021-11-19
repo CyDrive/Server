@@ -7,6 +7,7 @@ import (
 
 	"github.com/CyDrive/master/managers"
 	"github.com/CyDrive/rpc"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/peer"
 )
 
@@ -49,14 +50,17 @@ func (s *NodeManageServer) Notifier(req *rpc.ConnectNotifierRequest, stream rpc.
 		return fmt.Errorf("no such node, nodeId=%d, node may haven't join the cluster", req.NodeId)
 	}
 
-	for notificationI := range notifyChan {
-		switch notification := notificationI.(type) {
-		case *rpc.CreateFileTransferTaskNotification:
-			stream.Send(&rpc.Notify{
-				Notify: &rpc.Notify_CreateFileTransferTaskNotification{
-					CreateFileTransferTaskNotification: notification,
-				},
+	for notification := range notifyChan {
+		switch notify := notification.Notify.(type) {
+		case *rpc.Notify_CreateFileTransferTaskNotification:
+			log.Infof("notify node=%v, notification=%+v", req.NodeId, notify)
+			err := stream.Send(&rpc.Notify{
+				Notify: notify,
 			})
+			if err != nil {
+				log.Errorf("failed to notify, err=%v", err)
+				break
+			}
 		}
 	}
 

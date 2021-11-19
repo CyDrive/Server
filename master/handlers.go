@@ -164,6 +164,7 @@ func ListHandle(c *gin.Context) {
 	path := c.Param("path")
 	path = strings.Trim(path, "/")
 	absPath := utils.AccountFilePath(account, path)
+	absPath = strings.Trim(absPath, "/")
 
 	fileList, err := GetEnv().ReadDir(absPath)
 	for i := range fileList {
@@ -233,7 +234,7 @@ func DownloadHandle(c *gin.Context) {
 	uFileInfo.FilePath = strings.ReplaceAll(uFileInfo.FilePath, "\\", "/")
 
 	log.Infof("clientIp=%+v", c.ClientIP())
-	task := GetFileTransferor().CreateTask(c.ClientIP(), uFileInfo, file, consts.DataTaskType_Download, begin)
+	task := GetFileTransferor().CreateTask(uFileInfo, file, consts.DataTaskType_Download, begin)
 	resp := models.DownloadResponse{
 		NodeAddr: config.IpAddr + consts.FileTransferorListenPortStr,
 		TaskId:   task.Id,
@@ -313,8 +314,13 @@ func UploadHandle(c *gin.Context) {
 	if req.ShouldTruncate {
 		flags |= os.O_TRUNC
 	}
+	GetEnv().SetFileInfo(filePath, fileInfo)
 	file, err := GetEnv().OpenFile(filePath, flags, 0666)
-	task := GetFileTransferor().CreateTask(c.ClientIP(), fileInfo, file, consts.DataTaskType_Upload, fileInfo.Size)
+	if err != nil {
+		utils.Response(c, consts.StatusCode_IoError, fmt.Sprintf("failed to open file %s, err=%v", filePath, err))
+		return
+	}
+	task := GetFileTransferor().CreateTask(fileInfo, file, consts.DataTaskType_Upload, fileInfo.Size)
 
 	GetAccountStore().AddUsage(account.Email, fileInfo.Size)
 
@@ -576,7 +582,7 @@ func GetSharedFileHandle(c *gin.Context) {
 	uFileInfo.FilePath = strings.ReplaceAll(uFileInfo.FilePath, "\\", "/")
 
 	log.Infof("clientIp=%+v", c.ClientIP())
-	task := GetFileTransferor().CreateTask(c.ClientIP(), uFileInfo, file, consts.DataTaskType_Download, begin)
+	task := GetFileTransferor().CreateTask(uFileInfo, file, consts.DataTaskType_Download, begin)
 	resp := models.DownloadResponse{
 		NodeAddr: config.IpAddr + consts.FileTransferorListenPortStr,
 		TaskId:   task.Id,

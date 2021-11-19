@@ -16,6 +16,11 @@ import (
 	"github.com/CyDrive/utils"
 )
 
+var (
+	_ Env = (*LocalEnv)(nil)
+	_ Env = (*RemoteEnv)(nil)
+)
+
 type Env interface {
 	Open(name string) (types.FileHandle, error)                                 // for read
 	OpenFile(name string, flag int, perm os.FileMode) (types.FileHandle, error) // for write
@@ -24,6 +29,7 @@ type Env interface {
 	ReadDir(dirname string) ([]*models.FileInfo, error)
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 	Stat(name string) (*models.FileInfo, error)
+	SetFileInfo(name string, fileInfo *models.FileInfo) error
 }
 
 type LocalEnv struct{}
@@ -86,6 +92,10 @@ func (env *LocalEnv) Stat(name string) (*models.FileInfo, error) {
 	return utils.NewFileInfo(inner, name), nil
 }
 
+func (env *LocalEnv) SetFileInfo(name string, fileInfo *models.FileInfo) error {
+	return nil
+}
+
 type RemoteEnv struct {
 	nodeManager    *managers.NodeManager
 	fileTransferor *network.FileTransferor
@@ -93,10 +103,12 @@ type RemoteEnv struct {
 }
 
 func NewRemoteEnv(nodeManager *managers.NodeManager, fileTransferor *network.FileTransferor) *RemoteEnv {
+	metaMap := &sync.Map{}
+	metaMap.Store("data/1", &[]string{})
 	return &RemoteEnv{
 		nodeManager:    nodeManager,
 		fileTransferor: fileTransferor,
-		metaMap:        &sync.Map{},
+		metaMap:        metaMap,
 	}
 }
 
@@ -106,11 +118,10 @@ func (env *RemoteEnv) Open(name string) (types.FileHandle, error) {
 		return nil, os.ErrNotExist
 	}
 
-	node := env.nodeManager.GetNodesByFilePath(name)[0]
 	file := NewRemoteFile(os.O_RDONLY, 0666, fileInfo)
-	task := env.fileTransferor.CreateTask(node.Addr, fileInfo, file, consts.DataTaskType_Upload, 0)
-	task.OnConnect = func() {
-		file.conn = task.Conn
+	task := env.fileTransferor.CreateTask(fileInfo, file, consts.DataTaskType_Upload, 0)
+	task.OnEnd = func() {
+		file.writer.Close()
 	}
 	env.nodeManager.PrepareReadFile(task.Id, name)
 
@@ -120,18 +131,36 @@ func (env *RemoteEnv) Open(name string) (types.FileHandle, error) {
 func (env *RemoteEnv) OpenFile(name string, flag int, perm os.FileMode) (types.FileHandle, error) {
 	fileInfo, ok := env.getFileInfo(name)
 	if !ok {
-		return nil, os.ErrNotExist
+		panic("forget to update metaMap?")
 	}
 
-	node := env.nodeManager.GetNodesByFilePath(name)[0]
 	file := NewRemoteFile(flag, perm, fileInfo)
-	task := env.fileTransferor.CreateTask(node.Addr, fileInfo, file, consts.DataTaskType_Download, 0)
-	task.OnConnect = func() {
-		file.conn = task.Conn
+	task := env.fileTransferor.CreateTask(fileInfo, file, consts.DataTaskType_Download, 0)
+	task.OnEnd = func() {
+		file.reader.Close()
+
+		dir := filepath.Dir(name)
+		subFoldersI, _ := env.metaMap.Load(dir)
+		subFolders := subFoldersI.(*[]string)
+		*subFolders = append(*subFolders, name)
+		fileInfo, _ := file.Stat()
+		env.metaMap.Store(name, fileInfo)
 	}
 	env.nodeManager.PrepareReadFile(task.Id, name)
 
 	return file, nil
+}
+
+func (env *RemoteEnv) RemoveAll(path string) error {
+	return nil
+}
+
+func (env *RemoteEnv) MkdirAll(path string, perm os.FileMode) error {
+	return nil
+}
+
+func (env *RemoteEnv) Chtimes(name string, atime time.Time, mtime time.Time) error {
+	return nil
 }
 
 func (env *RemoteEnv) Stat(name string) (*models.FileInfo, error) {
@@ -149,13 +178,13 @@ func (env *RemoteEnv) ReadDir(dirname string) ([]*models.FileInfo, error) {
 		return nil, os.ErrNotExist
 	}
 
-	entries, ok := entriesI.([]string)
+	entries, ok := entriesI.(*[]string)
 	if !ok {
 		return nil, os.ErrInvalid
 	}
 
 	fileInfoList := []*models.FileInfo{}
-	for _, entry := range entries {
+	for _, entry := range *entries {
 		fileInfoI, ok := env.metaMap.Load(entry)
 		if !ok {
 			panic(fmt.Sprintf("forget to save the file info into metaMap: dirname=%s filepath=%s", dirname, entry))
@@ -173,6 +202,11 @@ func (env *RemoteEnv) ReadDir(dirname string) ([]*models.FileInfo, error) {
 	}
 
 	return fileInfoList, nil
+}
+
+func (env *RemoteEnv) SetFileInfo(name string, fileInfo *models.FileInfo) error {
+	env.metaMap.Store(name, fileInfo)
+	return nil
 }
 
 func (env *RemoteEnv) getFileInfo(filePath string) (*models.FileInfo, bool) {

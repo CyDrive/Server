@@ -9,6 +9,7 @@ import (
 
 	"github.com/CyDrive/config"
 	"github.com/CyDrive/network"
+	"github.com/CyDrive/rpc"
 	"github.com/CyDrive/types"
 	"github.com/CyDrive/utils"
 )
@@ -28,7 +29,7 @@ type Node struct {
 	Cap               int64
 	LastHeartBeatTime time.Time
 
-	NotifyChan chan interface{}
+	NotifyChan chan *rpc.Notify
 }
 
 func NewNode(cap, usage int64, addr string) *Node {
@@ -38,7 +39,7 @@ func NewNode(cap, usage int64, addr string) *Node {
 		Usage:             usage,
 		Cap:               cap,
 		LastHeartBeatTime: time.Now(),
-		NotifyChan:        make(chan interface{}, 100),
+		NotifyChan:        make(chan *rpc.Notify, 100),
 	}
 }
 
@@ -80,12 +81,33 @@ func (nm *NodeManager) GetNode(id int32) *Node {
 }
 
 func (nm *NodeManager) GetNodesByFilePath(filePath string) []*Node {
-	nodesI, ok := nm.fileMap.Load(filePath)
-	if !ok {
-		return nil
+	nodes := nm.getNodesByFilePath(filePath)
+
+	if len(nodes) == 0 { // this is a new file, assign a node to serve it
+		node := nm.PickNode()
+		nodes = nm.AssignFile(filePath, node)
 	}
 
-	nodes := nodesI.([]*Node)
+	return nodes
+}
+
+func (nm *NodeManager) getNodesByFilePath(filePath string) []*Node {
+	nodesI, ok := nm.fileMap.Load(filePath)
+	var nodes []*Node
+	if !ok {
+		nodes = []*Node{}
+		nm.fileMap.Store(filePath, nodes)
+	} else {
+		nodes = nodesI.([]*Node)
+	}
+
+	return nodes
+}
+
+func (nm *NodeManager) AssignFile(filePath string, node *Node) []*Node {
+	nodes := nm.getNodesByFilePath(filePath)
+	nodes = append(nodes, node)
+	nm.fileMap.Store(filePath, nodes)
 
 	return nodes
 }
@@ -136,9 +158,11 @@ func (nm *NodeManager) PrepareWriteFile(taskId types.TaskId, filePath string) er
 	nodes := nodesI.([]*Node)
 	node := nodes[0]
 	node.NotifyChan <- utils.PackCreateTransferFileTaskNotification(taskId, config.IpAddr, filePath)
+
+	return nil
 }
 
-func (nm *NodeManager) GetNotifyChan(nodeId int32) (<-chan interface{}, bool) {
+func (nm *NodeManager) GetNotifyChan(nodeId int32) (<-chan *rpc.Notify, bool) {
 	nodeI, ok := nm.nodeMap.Load(nodeId)
 	if !ok {
 		return nil, false

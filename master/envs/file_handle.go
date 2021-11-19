@@ -2,7 +2,6 @@ package envs
 
 import (
 	"io"
-	"net"
 	"os"
 
 	"github.com/CyDrive/models"
@@ -60,18 +59,21 @@ type RemoteFile struct {
 	Perm        os.FileMode
 	FileInfo    *models.FileInfo
 	CallOnStart func(taskId types.TaskId)
-	Err         error
 
-	conn *net.TCPConn
+	// pipe
+	reader *io.PipeReader
+	writer *io.PipeWriter
 }
 
 func NewRemoteFile(flag int, perm os.FileMode, fileInfo *models.FileInfo) *RemoteFile {
+	reader, writer := io.Pipe()
 	return &RemoteFile{
 		Flag:     flag,
 		Perm:     perm,
 		FileInfo: fileInfo,
 
-		Err: nil,
+		reader: reader,
+		writer: writer,
 	}
 }
 
@@ -87,43 +89,49 @@ func (file *RemoteFile) Truncate(size int64) error {
 	return nil
 }
 
+// unimplemented
 func (file *RemoteFile) Chmod(mode os.FileMode) error {
 	return nil
 }
 
 func (file *RemoteFile) Close() error {
-	file.Err = io.EOF
-	return nil
+	var err error = nil
+	if err = file.writer.Close(); err != nil {
+		return err
+	}
+	err = file.reader.Close()
+	return err
 }
 
 // write the data from node to the buffer
 // the err is always nil
 func (file *RemoteFile) Write(p []byte) (n int, err error) {
-	return 0, nil
+	return file.writer.Write(p)
 }
 
 func (file *RemoteFile) Read(p []byte) (n int, err error) {
-	if file.cacheFile == nil {
-	}
-	n, err = file.cacheFile.Read(p)
+	return file.reader.Read(p)
+	// if file.cacheFile == nil {
+	// }
+	// n, err = file.cacheFile.Read(p)
 
-	// we think of the err = io.EOF as err = nil
-	// and always return the file.Err if there're both errors
-	// +--------+----------+--------+
-	// |  err   | file.Err | return |
-	// +--------+----------+--------+
-	// | nil    | nil      | nil    |
-	// | io.EOF | nil      | nil    |
-	// | io.EOF | error    | error  |
-	// | error  | nil      | error  |
-	// | error1 | error2   | error2 |
-	// +--------+----------+--------+
-	if err == io.EOF {
-		err = nil
-	}
-	if file.Err != nil {
-		err = file.Err
-	}
+	// // we think of the err = io.EOF as err = nil
+	// // and always return the file.Err if there're both errors
+	// // +--------+----------+--------+
+	// // |  err   | file.Err | return |
+	// // +--------+----------+--------+
+	// // | nil    | nil      | nil    |
+	// // | io.EOF | nil      | nil    |
+	// // | io.EOF | error    | error  |
+	// // | error  | nil      | error  |
+	// // | error1 | error2   | error2 |
+	// // +--------+----------+--------+
+	// if err == io.EOF {
+	// 	err = nil
+	// }
+	// if file.Err != nil {
+	// 	err = file.Err
+	// }
 
-	return n, err
+	// return n, err
 }

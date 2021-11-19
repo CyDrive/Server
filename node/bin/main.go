@@ -8,9 +8,9 @@ import (
 
 func main() {
 	config := config.Config{
-		MasterAddr: "127.0.0.1:6455",
+		MasterAddr: "123.57.39.79:6455",
 		Cap:        5,
-		StorePath:  ".",
+		StorePath:  "./data",
 		Type:       rpc.StorageNodeType_Private,
 	}
 	node := node.NewStorageNode(config)

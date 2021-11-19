@@ -1,7 +1,6 @@
 package network
 
 import (
-	"bufio"
 	"encoding/binary"
 	"io"
 	"net"
@@ -19,7 +18,6 @@ import (
 type DataTask struct {
 	// filled when the server deliver task id
 	Id           types.TaskId
-	ClientIp     string
 	FileInfo     *models.FileInfo // note: the FilePath here is not relative to the account data folder
 	StartAt      time.Time
 	Type         consts.DataTaskType
@@ -70,12 +68,11 @@ func (ft *FileTransferor) Listen() {
 	}
 }
 
-func (ft *FileTransferor) CreateTask(clientIp string, fileInfo *models.FileInfo, file types.FileHandle, taskType consts.DataTaskType, doneBytes int64) *DataTask {
+func (ft *FileTransferor) CreateTask(fileInfo *models.FileInfo, file types.FileHandle, taskType consts.DataTaskType, doneBytes int64) *DataTask {
 	taskId := ft.idGen.NextAndRef()
 	// host, _, _ := net.SplitHostPort(clientIp)
 	task := &DataTask{
 		Id:           taskId,
-		ClientIp:     clientIp,
 		FileInfo:     fileInfo,
 		StartAt:      time.Now(),
 		Type:         taskType,
@@ -102,9 +99,8 @@ func (ft *FileTransferor) GetTask(taskId types.TaskId) *DataTask {
 }
 
 func (ft *FileTransferor) ProcessConn(conn *net.TCPConn) {
-	bufReader := bufio.NewReader(conn)
 	var taskId int32
-	err := binary.Read(bufReader, binary.LittleEndian, &taskId)
+	err := binary.Read(conn, binary.LittleEndian, &taskId)
 	if err != nil {
 		log.Errorf("read task id error: %+v", err)
 		return
@@ -116,19 +112,6 @@ func (ft *FileTransferor) ProcessConn(conn *net.TCPConn) {
 		return
 	}
 	task := taskI.(*DataTask)
-
-	// validate
-	tcpHost, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
-	tcpIp := net.ParseIP(tcpHost)
-	taskClientIp := net.ParseIP(task.ClientIp)
-
-	if !(tcpIp.Equal(taskClientIp) ||
-		tcpIp.IsLoopback() && taskClientIp.IsLoopback()) {
-		log.Warnf("IPs not match, tcpIp=%b, taskClientIp=%b", tcpIp, taskClientIp)
-		conn.Write([]byte("please DO NOT try to steal data"))
-		conn.Close()
-		return
-	}
 
 	task.Conn = conn
 
@@ -189,6 +172,10 @@ func (ft *FileTransferor) DownloadHandle(task *DataTask) {
 		}
 	}
 
+	if task.OnEnd != nil {
+		task.OnEnd()
+	}
+
 	ft.deleteTask(task.Id)
 }
 
@@ -197,8 +184,6 @@ func (ft *FileTransferor) UploadHandle(task *DataTask) {
 		log.Errorf("failed to truncated file, err=%+v, task=%+v", err, task)
 		return
 	}
-
-	defer task.File.Close()
 
 	for {
 		read, err := io.Copy(task.File, task.Conn)
@@ -218,6 +203,10 @@ func (ft *FileTransferor) UploadHandle(task *DataTask) {
 			log.Infof("task finished: %+v", task)
 			break
 		}
+	}
+
+	if task.OnEnd != nil {
+		task.OnEnd()
 	}
 
 	ft.deleteTask(task.Id)
