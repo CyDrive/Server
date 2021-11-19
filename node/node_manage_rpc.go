@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/CyDrive/consts"
@@ -92,12 +93,15 @@ func (node *StorageNode) ReportFileInfos() {
 			return err
 		}
 
+		path = strings.ReplaceAll(path, "\\", "/")
+
 		req.FileInfos = append(req.FileInfos, utils.NewFileInfo(info, path))
 		if len(req.FileInfos) >= consts.ReportFileInfoBatchSize {
 			_, err = node.manageClient.ReportFileInfos(ctx, req)
 			if err != nil {
 				return err
 			}
+			log.Infof("report fileInfos: %+v", req.FileInfos)
 			req.FileInfos = req.FileInfos[:0]
 		}
 
@@ -107,6 +111,7 @@ func (node *StorageNode) ReportFileInfos() {
 	if err == nil && len(req.FileInfos) > 0 { // some file infos left
 		_, err = node.manageClient.ReportFileInfos(ctx, req)
 		if err == nil {
+			log.Infof("report fileInfos: %+v", req.FileInfos)
 			req.FileInfos = req.FileInfos[:0]
 		}
 	}

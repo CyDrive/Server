@@ -156,6 +156,15 @@ func (env *RemoteEnv) RemoveAll(path string) error {
 }
 
 func (env *RemoteEnv) MkdirAll(path string, perm os.FileMode) error {
+	for path != "." { //
+		_, exist := env.metaMap.LoadOrStore(path, &[]string{})
+		if exist {
+			return nil
+		}
+
+		path = filepath.Dir(path)
+	}
+
 	return nil
 }
 
@@ -205,7 +214,30 @@ func (env *RemoteEnv) ReadDir(dirname string) ([]*models.FileInfo, error) {
 }
 
 func (env *RemoteEnv) SetFileInfo(name string, fileInfo *models.FileInfo) error {
-	env.metaMap.Store(name, fileInfo)
+	err := env.MkdirAll(filepath.Dir(name), 0666)
+	if err != nil {
+		return err
+	}
+
+	if !fileInfo.IsDir {
+		env.metaMap.Store(name, fileInfo)
+	}
+
+	dir := filepath.Dir(name)
+	if dir != "." {
+		subFoldersI, ok := env.metaMap.Load(dir)
+		if !ok {
+			panic("forget to mkdir for this folder: " + dir + ", the filepath is " + name)
+		}
+
+		subFolders, ok := subFoldersI.(*[]string)
+		if !ok {
+			panic("not a folder: " + dir)
+		}
+
+		*subFolders = append(*subFolders, name)
+	}
+
 	return nil
 }
 

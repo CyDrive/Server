@@ -40,5 +40,5 @@ const (
 
 	ShortUriCharSetSize = 36
 
-	ReportFileInfoBatchSize = 100
+	ReportFileInfoBatchSize = 10
 )
