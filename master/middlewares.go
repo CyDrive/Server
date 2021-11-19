@@ -22,8 +22,13 @@ func SetRequestId(router *gin.Engine) gin.HandlerFunc {
 
 func LoginAuth(router *gin.Engine) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		apiUrl := strings.Trim(c.Request.URL.Path, "/")
+		apiUrl := strings.Split(c.Request.URL.Path, "/")[0]
 		if apiUrl == "login" || apiUrl == "register" {
+			c.Next()
+			return
+		}
+
+		if c.Request.Method == "GET" && apiUrl == "share" && c.Query("public") == "true" {
 			c.Next()
 			return
 		}
