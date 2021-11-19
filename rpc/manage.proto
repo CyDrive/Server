@@ -38,7 +38,10 @@ message HeartBeatsRequest {
 
 message HeartBeatsResponse {}
 
-message ReportFileInfosRequest { repeated models.FileInfo file_infos = 1; }
+message ReportFileInfosRequest {
+  int32 id = 1;
+  repeated models.FileInfo file_infos = 2;
+}
 
 message ReportFileInfosResponse {}
 

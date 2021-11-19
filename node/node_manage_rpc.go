@@ -84,6 +84,7 @@ func (node *StorageNode) ProcessNotifications() {
 func (node *StorageNode) ReportFileInfos() {
 	ctx := context.Background()
 	req := &rpc.ReportFileInfosRequest{
+		Id:        node.Id,
 		FileInfos: make([]*models.FileInfo, 0, 10),
 	}
 	err := filepath.Walk(node.StorePath, func(path string, info os.FileInfo, err error) error {
