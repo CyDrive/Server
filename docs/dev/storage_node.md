@@ -20,7 +20,19 @@ Master 需要维护一张 map: filepath -> node_addr 的表，并且会缓存一
 1. Client 请求下载一个文件
 2. Master 将读文件请求下传到 Env，而底层的 RemoteEnv 通过 NodeManager 发送通知到 Node，与 Node 建立连接
 3. FileTransfer 中存在两个连接：Master 与 Client 之间，Master 与 Node 之间
-4. Master 会把从 Node 拉来的文件写到本地硬盘
+4. Master 通过 RemoteFile （内部是一个 Pipe）将两个 Task 连接起来
+
+### Schedule
+Node Manager 需要管理 Nodes 并且对它们进行调度。一个 Node 任意时刻处于下面的状态之一：
+- Offline：Node 心跳超时
+- Starting：Node 启动中，还未就绪
+- Running：Node 正在运行
+- Dropping：Node 处于 Offline 时间达到一定阈值，稍后将被删除
+
+Node 启动的起点是 JoinCluster()，Master 收到该请求后应将 Node 置为 Starting 状态。后续通过 Node 发送的心跳中的状态来记录 Node 的状态。如果心跳超时则应当将状态置为 Offline，如果长时间处于 Offline 则将 Node 移除。
+
+当有新的文件需要存储时，Node Manager 通过 PickNodes(n) 来选出 n 个 Nodes 来存储这个文件，在调度上需要考虑容量是否足够的硬性条件，还要根据 Node 心跳中的负载信息做出一定的调整。
+
 
 ## Private Storage Node
 这里主要描述流量经过 Master 的设计，我们用一个 server-side streaming RPC 来实现通知和对 Node 的主动管理。例如修改 Node 的状态，通知 Node 发送/接收文件等。Node 收到通知后，建立相应的连接来进行数据传输。没有采用双向流是因为这样我们不需要一直维护大量的长连接，而且可以每个传输任务使用单独的连接，让它们之间不相互影响。另一个原因就是这样的代码可维护性会更高。
