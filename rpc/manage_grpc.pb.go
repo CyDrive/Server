@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 type ManageClient interface {
 	JoinCluster(ctx context.Context, in *JoinClusterRequest, opts ...grpc.CallOption) (*JoinClusterResponse, error)
 	HeartBeats(ctx context.Context, in *HeartBeatsRequest, opts ...grpc.CallOption) (*HeartBeatsResponse, error)
+	ReportFileInfos(ctx context.Context, in *ReportFileInfosRequest, opts ...grpc.CallOption) (*ReportFileInfosResponse, error)
 	Notifier(ctx context.Context, in *ConnectNotifierRequest, opts ...grpc.CallOption) (Manage_NotifierClient, error)
 }
 
@@ -43,6 +44,15 @@ func (c *manageClient) JoinCluster(ctx context.Context, in *JoinClusterRequest, 
 func (c *manageClient) HeartBeats(ctx context.Context, in *HeartBeatsRequest, opts ...grpc.CallOption) (*HeartBeatsResponse, error) {
 	out := new(HeartBeatsResponse)
 	err := c.cc.Invoke(ctx, "/rpc.Manage/HeartBeats", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *manageClient) ReportFileInfos(ctx context.Context, in *ReportFileInfosRequest, opts ...grpc.CallOption) (*ReportFileInfosResponse, error) {
+	out := new(ReportFileInfosResponse)
+	err := c.cc.Invoke(ctx, "/rpc.Manage/ReportFileInfos", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +97,7 @@ func (x *manageNotifierClient) Recv() (*Notify, error) {
 type ManageServer interface {
 	JoinCluster(context.Context, *JoinClusterRequest) (*JoinClusterResponse, error)
 	HeartBeats(context.Context, *HeartBeatsRequest) (*HeartBeatsResponse, error)
+	ReportFileInfos(context.Context, *ReportFileInfosRequest) (*ReportFileInfosResponse, error)
 	Notifier(*ConnectNotifierRequest, Manage_NotifierServer) error
 	mustEmbedUnimplementedManageServer()
 }
@@ -100,6 +111,9 @@ func (UnimplementedManageServer) JoinCluster(context.Context, *JoinClusterReques
 }
 func (UnimplementedManageServer) HeartBeats(context.Context, *HeartBeatsRequest) (*HeartBeatsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HeartBeats not implemented")
+}
+func (UnimplementedManageServer) ReportFileInfos(context.Context, *ReportFileInfosRequest) (*ReportFileInfosResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReportFileInfos not implemented")
 }
 func (UnimplementedManageServer) Notifier(*ConnectNotifierRequest, Manage_NotifierServer) error {
 	return status.Errorf(codes.Unimplemented, "method Notifier not implemented")
@@ -153,6 +167,24 @@ func _Manage_HeartBeats_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Manage_ReportFileInfos_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReportFileInfosRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManageServer).ReportFileInfos(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpc.Manage/ReportFileInfos",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManageServer).ReportFileInfos(ctx, req.(*ReportFileInfosRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Manage_Notifier_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(ConnectNotifierRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -188,6 +220,10 @@ var Manage_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "HeartBeats",
 			Handler:    _Manage_HeartBeats_Handler,
+		},
+		{
+			MethodName: "ReportFileInfos",
+			Handler:    _Manage_ReportFileInfos_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

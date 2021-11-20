@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/mail"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -163,6 +164,7 @@ func ListHandle(c *gin.Context) {
 	path := c.Param("path")
 	path = strings.Trim(path, "/")
 	absPath := utils.AccountFilePath(account, path)
+	absPath = strings.Trim(absPath, "/")
 
 	fileList, err := GetEnv().ReadDir(absPath)
 	for i := range fileList {
@@ -194,109 +196,23 @@ func ListHandle(c *gin.Context) {
 	})
 }
 
-func GetFileInfoHandle(c *gin.Context) {
-	userI, _ := c.Get("account")
-	account := userI.(*models.Account)
-
-	filePath := c.Param("path")
-	filePath = strings.Trim(filePath, "/")
-	absFilePath := utils.AccountFilePath(account, filePath)
-
-	fileInfo, err := GetEnv().Stat(absFilePath)
-	if err != nil {
-		c.JSON(http.StatusOK, models.Response{
-			StatusCode: consts.StatusCode_IoError,
-			Message:    err.Error(),
-		})
-		return
-	}
-
-	fileInfoBytes, err := utils.GetJsonEncoder().Marshal(fileInfo)
-	if err != nil {
-		c.JSON(http.StatusOK, models.Response{
-			StatusCode: consts.StatusCode_InternalError,
-			Message:    err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, models.Response{
-		StatusCode: consts.StatusCode_Ok,
-		Message:    "get file info done",
-		Data:       string(fileInfoBytes),
-	})
-}
-
-// func PutFileInfoHandle(c *gin.Context) {
-// 	userI, _ := c.Get("account")
-// 	account := userI.(*models.User)
-
-// 	filePath := c.Param("path")
-// 	filePath = strings.Trim(filePath, "/")
-// 	absFilePath := filepath.Join(utils.GetAccountDataDir(account), filePath)
-
-// 	_, err := GetEnv().Stat(absFilePath)
-// 	if err != nil {
-// 		c.JSON(http.StatusOK, models.Resp{
-// 			StatusCode:  consts.StatusCode_IoError,
-// 			Message: err.Error(),
-// 			Data:    nil,
-// 		})
-// 		return
-// 	}
-
-// 	len := c.Request.ContentLength
-// 	fileInfoJson := make([]byte, len)
-// 	c.Request.Body.Read(fileInfoJson)
-
-// 	fileInfo := models.FileInfo{}
-// 	if err := json.Unmarshal(fileInfoJson, &fileInfo); err != nil {
-// 		c.JSON(http.StatusOK, models.Resp{
-// 			StatusCode:  consts.StatusCode_InternalError,
-// 			Message: "error when parsing file info",
-// 			Data:    nil,
-// 		})
-// 		return
-// 	}
-
-// 	openFile, err := GetEnv().OpenFile(absFilePath, os.O_RDWR, os.FileMode(fileInfo.FileMode))
-// 	if err != nil {
-// 		c.JSON(http.StatusOK, models.Resp{
-// 			StatusCode:  consts.StatusCode_IoError,
-// 			Message: err.Error(),
-// 			Data:    nil,
-// 		})
-// 		return
-// 	}
-// 	defer openFile.Close()
-
-// 	if err = GetEnv().Chtimes(absFilePath, time.Now(), time.Unix(fileInfo.ModifyTime, 0)); err != nil {
-// 		c.JSON(http.StatusOK, models.Resp{
-// 			StatusCode:  consts.StatusCode_InternalError,
-// 			Message: err.Error(),
-// 			Data:    nil,
-// 		})
-
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, models.Resp{
-// 		StatusCode:  consts.StatusCode_Ok,
-// 		Message: "put file info done",
-// 		Data:    nil,
-// 	})
-// }
-
 func DownloadHandle(c *gin.Context) {
 	userI, _ := c.Get("account")
 	account := userI.(*models.Account)
 
 	// relative path
-	filePath := c.Param("path")
+	filePath := strings.Trim(c.Param("path"), "/")
 
 	// absolute filepath
 	filePath = utils.AccountFilePath(account, filePath)
-	fileInfo, _ := GetEnv().Stat(filePath)
+	fileInfo, err := GetEnv().Stat(filePath)
+	log.Infof("read file info for filePath=%s, fileInfo=%+v", filePath, fileInfo)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to get file info of filePath=%s, err=%v", filePath, err)
+		log.Error(errMsg)
+		utils.Response(c, consts.StatusCode_IoError, errMsg)
+		return
+	}
 
 	if fileInfo.IsDir {
 		c.JSON(http.StatusOK, models.Response{
@@ -313,16 +229,23 @@ func DownloadHandle(c *gin.Context) {
 		begin, _ = utils.UnpackRange(bytesRange)
 	}
 
-	uFileInfo := fileInfo
+	file, err := GetEnv().Open(fileInfo.FilePath)
+	if err != nil {
+		log.Errorf("failed to open file %s, err=%+v", fileInfo.FilePath, err)
+		utils.Response(c, consts.StatusCode_IoError, err.Error())
+		return
+	}
+
+	uFileInfo := *fileInfo
 	uFileInfo.FilePath, _ = filepath.Rel(utils.GetAccountDataDir(account.Id), uFileInfo.FilePath)
 	uFileInfo.FilePath = strings.ReplaceAll(uFileInfo.FilePath, "\\", "/")
 
 	log.Infof("clientIp=%+v", c.ClientIP())
-	taskId := GetFileTransferor().CreateTask(c.ClientIP(), uFileInfo, account, consts.DataTaskType_Download, begin)
+	task := GetFileTransferor().CreateTask(&uFileInfo, file, consts.DataTaskType_Download, begin)
 	resp := models.DownloadResponse{
 		NodeAddr: config.IpAddr + consts.FileTransferorListenPortStr,
-		TaskId:   taskId,
-		FileInfo: uFileInfo,
+		TaskId:   task.Id,
+		FileInfo: &uFileInfo,
 	}
 	log.Infof("downloadResp=%+v", resp)
 	respBytes, err := utils.GetJsonEncoder().Marshal(&resp)
@@ -345,7 +268,7 @@ func UploadHandle(c *gin.Context) {
 	userI, _ := c.Get("account")
 	account := userI.(*models.Account)
 
-	filePath := c.Param("path")
+	filePath := strings.Trim(c.Param("path"), "/")
 	filePath = utils.AccountFilePath(account, filePath)
 
 	jsonBytes, err := ioutil.ReadAll(c.Request.Body)
@@ -394,7 +317,20 @@ func UploadHandle(c *gin.Context) {
 		return
 	}
 
-	taskId := GetFileTransferor().CreateTask(c.ClientIP(), fileInfo, account, consts.DataTaskType_Upload, fileInfo.Size)
+	flags := os.O_CREATE | os.O_WRONLY
+	if req.ShouldTruncate {
+		flags |= os.O_TRUNC
+	}
+	GetEnv().SetFileInfo(filePath, fileInfo)
+	file, err := GetEnv().OpenFile(filePath, flags, 0666)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to open file %s, err=%v", filePath, err)
+		log.Error(errMsg)
+		utils.Response(c, consts.StatusCode_IoError, errMsg)
+		return
+	}
+	task := GetFileTransferor().CreateTask(fileInfo, file, consts.DataTaskType_Upload, 0)
+
 	GetAccountStore().AddUsage(account.Email, fileInfo.Size)
 
 	offset := int64(0)
@@ -408,7 +344,7 @@ func UploadHandle(c *gin.Context) {
 
 	resp := models.UploadResponse{
 		NodeAddr: config.IpAddr + consts.FileTransferorListenPortStr,
-		TaskId:   taskId,
+		TaskId:   task.Id,
 		Offset:   offset,
 	}
 
@@ -650,14 +586,15 @@ func GetSharedFileHandle(c *gin.Context) {
 	}
 
 	uFileInfo := fileInfo
+	file, _ := GetEnv().Open(fileInfo.FilePath)
 	uFileInfo.FilePath, _ = filepath.Rel(utils.GetAccountDataDir(account.Id), uFileInfo.FilePath)
 	uFileInfo.FilePath = strings.ReplaceAll(uFileInfo.FilePath, "\\", "/")
 
 	log.Infof("clientIp=%+v", c.ClientIP())
-	taskId := GetFileTransferor().CreateTask(c.ClientIP(), uFileInfo, account, consts.DataTaskType_Download, begin)
+	task := GetFileTransferor().CreateTask(uFileInfo, file, consts.DataTaskType_Download, begin)
 	resp := models.DownloadResponse{
 		NodeAddr: config.IpAddr + consts.FileTransferorListenPortStr,
-		TaskId:   taskId,
+		TaskId:   task.Id,
 		FileInfo: uFileInfo,
 	}
 	log.Infof("downloadResp=%+v", resp)

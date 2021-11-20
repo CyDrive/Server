@@ -7,7 +7,8 @@ import (
 
 	"github.com/CyDrive/master/managers"
 	"github.com/CyDrive/rpc"
-	"github.com/CyDrive/utils"
+	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc/peer"
 )
 
 type NodeManageServer struct {
@@ -16,7 +17,8 @@ type NodeManageServer struct {
 
 func (s *NodeManageServer) JoinCluster(ctx context.Context, req *rpc.JoinClusterRequest) (*rpc.JoinClusterResponse, error) {
 	nodeManager := GetNodeManager()
-	node := managers.NewNode(req.Capacity, req.Usage)
+	peer, _ := peer.FromContext(ctx)
+	node := managers.NewNode(req.Capacity, req.Usage, peer.Addr.String())
 
 	nodeManager.AddNode(node)
 
@@ -48,15 +50,40 @@ func (s *NodeManageServer) Notifier(req *rpc.ConnectNotifierRequest, stream rpc.
 		return fmt.Errorf("no such node, nodeId=%d, node may haven't join the cluster", req.NodeId)
 	}
 
-	for notificationI := range notifyChan {
-		switch notification := notificationI.(type) {
-		case *rpc.CreateSendFileTaskNotify:
-			stream.Send(utils.PackCreateSendFileTaskNotify(notification))
-
-		case *rpc.CreateRecvFileTaskNotify:
-			stream.Send(utils.PackCreateRecvFileTaskNotify(notification))
+	for notification := range notifyChan {
+		switch notify := notification.Notify.(type) {
+		case *rpc.Notify_TransferFileNotification:
+			log.Infof("notify node=%v, notification=%+v", req.NodeId, notify)
+			err := stream.Send(&rpc.Notify{
+				Notify: notify,
+			})
+			if err != nil {
+				log.Errorf("failed to notify, err=%v", err)
+				break
+			}
 		}
 	}
 
 	return nil
+}
+
+func (s *NodeManageServer) ReportFileInfos(ctx context.Context, req *rpc.ReportFileInfosRequest) (*rpc.ReportFileInfosResponse, error) {
+	log.Infof("req=%+v", req)
+
+	for _, fileInfo := range req.FileInfos {
+		// update MetaMap
+		log.Infof("set file info: filepath=%s, fileInfo=%+v", fileInfo.FilePath, fileInfo)
+		GetEnv().SetFileInfo(fileInfo.FilePath, fileInfo)
+
+		// record the node to serve the file
+		node := GetNodeManager().GetNode(req.Id)
+		if node == nil {
+			panic("forget to add node into node manager")
+		}
+		GetNodeManager().AssignFile(fileInfo.FilePath, node)
+	}
+
+	resp := &rpc.ReportFileInfosResponse{}
+
+	return resp, nil
 }

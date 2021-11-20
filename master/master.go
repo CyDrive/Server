@@ -79,34 +79,41 @@ type Master struct {
 
 func NewMaster(config config.Config) *Master {
 	var (
-		env          envs.Env
-		accountStore store.AccountStore
-		messageStore store.MessageStore
-		shareStore   store.ShareStore
+		env            envs.Env
+		accountStore   store.AccountStore
+		messageStore   store.MessageStore
+		shareStore     store.ShareStore
+		fileTransferor = network.NewFileTransferor()
+		nodeManager    = managers.NewNodeManager(fileTransferor)
 	)
 
-	if config.EnvType == consts.EnvTypeLocal {
+	// Set env
+	switch config.EnvType {
+	case consts.EnvTypeLocal:
 		env = envs.NewLocalEnv()
+	case consts.EnvTypeRemote:
+		env = envs.NewRemoteEnv(nodeManager, fileTransferor)
 	}
+
+	// Set account store
 	if config.AccountStoreType == consts.AccountStoreTypeMem {
 		accountStore = store.NewMemStore()
 	}
+
+	// Set message store
 	switch config.MessageStoreType {
 	case consts.MessageStoreTypeMem:
 		messageStore = store.NewMessageStoreMem()
 	}
 
+	// Set share store
 	shareStore = store.NewShareStoreMem()
 
-	if env == nil || accountStore == nil {
-		panic("error when initialize")
-	}
-
 	master = &Master{
-		nodeManager:      managers.NewNodeManager(),
+		nodeManager:      nodeManager,
 		nodeManageServer: &NodeManageServer{},
 
-		fileTransferor: network.NewFileTransferor(env),
+		fileTransferor: fileTransferor,
 
 		messageManager: managers.NewMessageManager(messageStore),
 

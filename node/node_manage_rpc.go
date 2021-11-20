@@ -2,9 +2,15 @@ package node
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/CyDrive/consts"
+	"github.com/CyDrive/models"
 	"github.com/CyDrive/rpc"
+	"github.com/CyDrive/utils"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -24,6 +30,7 @@ func (node *StorageNode) JoinCluster() error {
 	node.Id = resp.Id
 
 	log.Infof("join cluster, assigned id: %d", node.Id)
+
 	return nil
 }
 
@@ -32,7 +39,7 @@ func (node *StorageNode) HeartBeat() {
 		Id:              node.Id,
 		StorageUsage:    node.Usage,
 		CpuUsagePercent: 0,
-		TaskNum:         0,
+		TaskNum:         node.TaskNum,
 	}
 
 	ctx, _ := context.WithTimeout(context.Background(), 250*time.Millisecond)
@@ -42,22 +49,75 @@ func (node *StorageNode) HeartBeat() {
 		return
 	}
 
-	log.Infof("heartbeat with req=%+v", req)
+	// log.Infof("heartbeat with req=%+v", req)
 }
 
-func (node *StorageNode) Notify() {
+func (node *StorageNode) ProcessNotifications() {
 	stream, err := node.manageClient.Notifier(context.Background(), &rpc.ConnectNotifierRequest{
 		NodeId: node.Id,
 	})
 	if err != nil {
-
+		log.Errorf("failed to connect the notifier, err=%v", err)
+		panic("failed to connect the notifier")
 	}
 
-	notify, err := stream.Recv()
+	for {
+		notify, err := stream.Recv()
+		if err != nil {
+			log.Errorf("failed to recv notification, err=%v", err)
+		}
 
-	switch notification := notify.Notify.(type) {
-	case *rpc.Notify_CreateSendfileTaskNotify:
-		sendFileNotify := notification.CreateSendfileTaskNotify
-		log.Infof("notify=%+v", sendFileNotify)
+		switch notify := notify.Notify.(type) {
+		case *rpc.Notify_TransferFileNotification:
+			notification := notify.TransferFileNotification
+			log.Infof("recv file transfer notification: %+v", notification)
+
+			node.TaskNum++
+			if notification.TaskType == consts.DataTaskType_Download {
+				go node.DownloadFile(notification.TaskId, notification.FilePath, notification.Addr+consts.FileTransferorListenPortStr)
+			} else if notification.TaskType == consts.DataTaskType_Upload {
+				go node.UploadFile(notification.TaskId, notification.FilePath, notification.Addr+consts.FileTransferorListenPortStr)
+			}
+		}
+	}
+}
+
+func (node *StorageNode) ReportFileInfos() {
+	ctx := context.Background()
+	req := &rpc.ReportFileInfosRequest{
+		Id:        node.Id,
+		FileInfos: make([]*models.FileInfo, 0, 10),
+	}
+	err := filepath.Walk(node.StorePath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		path = strings.Trim(strings.ReplaceAll(path, "\\", "/"), "/")
+
+		req.FileInfos = append(req.FileInfos, utils.NewFileInfo(info, path))
+		if len(req.FileInfos) >= consts.ReportFileInfoBatchSize {
+			_, err = node.manageClient.ReportFileInfos(ctx, req)
+			if err != nil {
+				return err
+			}
+			log.Infof("report fileInfos: %+v", req.FileInfos)
+			req.FileInfos = req.FileInfos[:0]
+		}
+
+		return nil
+	})
+
+	if err == nil && len(req.FileInfos) > 0 { // some file infos left
+		_, err = node.manageClient.ReportFileInfos(ctx, req)
+		if err == nil {
+			log.Infof("report fileInfos: %+v", req.FileInfos)
+			req.FileInfos = req.FileInfos[:0]
+		}
+	}
+
+	if err != nil {
+		log.Errorf("failed to report file infos, err=%v, fileInfos=%+v", err, req.FileInfos)
+		return
 	}
 }

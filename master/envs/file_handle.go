@@ -1,25 +1,13 @@
 package envs
 
 import (
-	"bytes"
 	"io"
 	"os"
 
-	"github.com/CyDrive/consts"
 	"github.com/CyDrive/models"
 	"github.com/CyDrive/types"
 	"github.com/CyDrive/utils"
 )
-
-type FileHandle interface {
-	Stat() (*models.FileInfo, error)
-	Seek(offset int64, whence int) (int64, error)
-	Truncate(size int64) error
-	Chmod(mode os.FileMode) error
-	Close() error
-	io.Writer
-	io.Reader
-}
 
 type LocalFile struct {
 	path string
@@ -71,23 +59,26 @@ type RemoteFile struct {
 	Perm        os.FileMode
 	FileInfo    *models.FileInfo
 	CallOnStart func(taskId types.TaskId)
-	Err         error
 
-	buffer *bytes.Buffer
+	// pipe
+	reader *io.PipeReader
+	writer *io.PipeWriter
 }
 
-func NewRemoteFile(flag int, perm os.FileMode) *RemoteFile {
+func NewRemoteFile(flag int, perm os.FileMode, fileInfo *models.FileInfo) *RemoteFile {
+	reader, writer := io.Pipe()
 	return &RemoteFile{
-		Flag:   flag,
-		Perm:   perm,
-		buffer: bytes.NewBuffer(make([]byte, 0, consts.RemoteFileHandleBufferSize)),
+		Flag:     flag,
+		Perm:     perm,
+		FileInfo: fileInfo,
 
-		Err: nil,
+		reader: reader,
+		writer: writer,
 	}
 }
 
 func (file *RemoteFile) Stat() (*models.FileInfo, error) {
-	return nil, nil
+	return file.FileInfo, nil
 }
 
 func (file *RemoteFile) Seek(offset int64, whence int) (int64, error) {
@@ -98,41 +89,21 @@ func (file *RemoteFile) Truncate(size int64) error {
 	return nil
 }
 
+// unimplemented
 func (file *RemoteFile) Chmod(mode os.FileMode) error {
 	return nil
 }
 
 func (file *RemoteFile) Close() error {
-	file.Err = io.EOF
-	return nil
+	return file.writer.Close()
 }
 
 // write the data from node to the buffer
 // the err is always nil
 func (file *RemoteFile) Write(p []byte) (n int, err error) {
-	return file.buffer.Write(p)
+	return file.writer.Write(p)
 }
 
 func (file *RemoteFile) Read(p []byte) (n int, err error) {
-	n, err = file.buffer.Read(p)
-
-	// we think of the err = io.EOF as err = nil
-	// and always return the file.Err if there're both errors
-	// +--------+----------+--------+
-	// |  err   | file.Err | return |
-	// +--------+----------+--------+
-	// | nil    | nil      | nil    |
-	// | io.EOF | nil      | nil    |
-	// | io.EOF | error    | error  |
-	// | error  | nil      | error  |
-	// | error1 | error2   | error2 |
-	// +--------+----------+--------+
-	if err == io.EOF {
-		err = nil
-	}
-	if file.Err != nil {
-		err = file.Err
-	}
-
-	return n, err
+	return file.reader.Read(p)
 }

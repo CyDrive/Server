@@ -92,6 +92,10 @@ func GetAccountDataDir(accountId int32) string {
 	return fmt.Sprintf("data/%d", accountId)
 }
 
+func GetAccountTempDir(accountId int32) string {
+	return fmt.Sprintf("temp/%d", accountId)
+}
+
 func GetDateTimeNow() string {
 	return time.Now().Format(consts.TimeFormat)
 }
@@ -142,6 +146,19 @@ func AccountFilePathById(accountId int32, path string) string {
 	return strings.Join([]string{GetAccountDataDir(accountId), path}, "/")
 }
 
+func AccountTempFilePathById(accountId int32, path string) string {
+	return strings.Join([]string{GetAccountTempDir(accountId), path}, "/")
+}
+
+func UnpackAccountIdFromPath(filePath string) (int32, error) {
+	entries := strings.Split(filePath, "/")
+	accountId, err := strconv.ParseInt(entries[1], 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int32(accountId), nil
+}
+
 func ShouldCompressed(fileInfo os.FileInfo) bool {
 	return fileInfo.Size() > consts.CompressBaseline
 }
@@ -161,7 +178,6 @@ func GetResp(resp *http.Response) *models.Response {
 func ForEachFile(path string, handle func(file *os.File)) {
 	fileinfo, err := os.Stat(path)
 	if err != nil {
-		fmt.Println(err, path)
 		return
 	}
 	if !fileinfo.IsDir() {
@@ -185,7 +201,6 @@ func ForEachRemoteFile(path string,
 
 	fileInfo := getFileInfo(path)
 	if fileInfo == nil {
-		fmt.Println("can't get file info:", path)
 		return
 	}
 	if !fileInfo.IsDir {

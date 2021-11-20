@@ -1,17 +1,14 @@
 package network
 
 import (
-	"bufio"
 	"encoding/binary"
 	"io"
 	"net"
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/CyDrive/consts"
-	"github.com/CyDrive/master/envs"
 	"github.com/CyDrive/models"
 	"github.com/CyDrive/types"
 	"github.com/CyDrive/utils"
@@ -21,33 +18,33 @@ import (
 type DataTask struct {
 	// filled when the server deliver task id
 	Id           types.TaskId
-	ClientIp     string
-	FileInfo     *models.FileInfo
-	Account      *models.Account
+	FileInfo     *models.FileInfo // note: the FilePath here is not relative to the account data folder
 	StartAt      time.Time
 	Type         consts.DataTaskType
 	HasDoneBytes int64
 
 	// filled when client connects to the server
-	Conn          *net.TCPConn
-	LastAcessTime int64
+	Conn           *net.TCPConn
+	File           types.FileHandle
+	LastAccessTime int64
 
-	// filled when the task starts
-	FileHandle envs.FileHandle
+	// callbacks
+	OnConnect func()
+	OnStart   func()
+	OnEnd     func()
+	OnError   func()
 }
 
 type FileTransferor struct {
 	taskMap *sync.Map
 	idGen   *utils.IdGenerator
-	env     envs.Env
 }
 
-func NewFileTransferor(env envs.Env) *FileTransferor {
+func NewFileTransferor() *FileTransferor {
 	idGen := utils.NewIdGenerator()
 	return &FileTransferor{
 		taskMap: &sync.Map{},
 		idGen:   idGen,
-		env:     env,
 	}
 }
 
@@ -65,32 +62,29 @@ func (ft *FileTransferor) Listen() {
 			log.Errorf("accept tcp connection error: %+v", err)
 		}
 
-		log.Infof("connection from: %+v", conn.RemoteAddr())
-
 		go ft.ProcessConn(conn)
 	}
 }
 
-func (ft *FileTransferor) CreateTask(clientIp string, fileInfo *models.FileInfo, account *models.Account, taskType consts.DataTaskType, doneBytes int64) int32 {
+func (ft *FileTransferor) CreateTask(fileInfo *models.FileInfo, file types.FileHandle, taskType consts.DataTaskType, doneBytes int64) *DataTask {
 	taskId := ft.idGen.NextAndRef()
 	// host, _, _ := net.SplitHostPort(clientIp)
 	task := &DataTask{
 		Id:           taskId,
-		ClientIp:     clientIp,
 		FileInfo:     fileInfo,
-		Account:      account,
 		StartAt:      time.Now(),
 		Type:         taskType,
 		HasDoneBytes: doneBytes,
 
-		Conn:          nil,
-		LastAcessTime: time.Now().Unix(),
+		Conn:           nil,
+		File:           file,
+		LastAccessTime: time.Now().Unix(),
 	}
 
 	log.Infof("create new task: %+v", task)
 	ft.taskMap.Store(taskId, task)
 
-	return taskId
+	return task
 }
 
 func (ft *FileTransferor) GetTask(taskId types.TaskId) *DataTask {
@@ -103,13 +97,14 @@ func (ft *FileTransferor) GetTask(taskId types.TaskId) *DataTask {
 }
 
 func (ft *FileTransferor) ProcessConn(conn *net.TCPConn) {
-	bufReader := bufio.NewReader(conn)
 	var taskId int32
-	err := binary.Read(bufReader, binary.LittleEndian, &taskId)
+	err := binary.Read(conn, binary.LittleEndian, &taskId)
 	if err != nil {
 		log.Errorf("read task id error: %+v", err)
 		return
 	}
+
+	log.Infof("connection from: %+v, taskId=%+v", conn.RemoteAddr(), taskId)
 
 	taskI, ok := ft.taskMap.Load(taskId)
 	if !ok {
@@ -118,20 +113,13 @@ func (ft *FileTransferor) ProcessConn(conn *net.TCPConn) {
 	}
 	task := taskI.(*DataTask)
 
-	// validate
-	tcpHost, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
-	tcpIp := net.ParseIP(tcpHost)
-	taskClientIp := net.ParseIP(task.ClientIp)
-
-	if !(tcpIp.Equal(taskClientIp) ||
-		tcpIp.IsLoopback() && taskClientIp.IsLoopback()) {
-		log.Warnf("IPs not match, tcpIp=%b, taskClientIp=%b", tcpIp, taskClientIp)
-		conn.Write([]byte("please DO NOT try to steal data"))
-		conn.Close()
-		return
-	}
-
 	task.Conn = conn
+
+	// Connection established from now
+
+	if task.OnConnect != nil {
+		task.OnConnect()
+	}
 
 	switch task.Type {
 	case consts.DataTaskType_Download:
@@ -145,80 +133,64 @@ func (ft *FileTransferor) ProcessConn(conn *net.TCPConn) {
 func (ft *FileTransferor) DownloadHandle(task *DataTask) {
 	var err error
 
-	path := utils.AccountFilePath(task.Account, task.FileInfo.FilePath)
-	task.FileHandle, err = ft.env.Open(path)
-
-	if remoteFileHandle, ok := task.FileHandle.(*envs.RemoteFile); ok && remoteFileHandle.CallOnStart != nil {
-		remoteFileHandle.CallOnStart(task.Id)
-	}
-
-	if err != nil {
-		log.Errorf("open file %+v error: %+v", task.FileInfo.FilePath, err)
-		// todo: notify account by message channel
-		return
-	}
-	defer task.FileHandle.Close()
-
-	if _, err = task.FileHandle.Seek(task.HasDoneBytes, io.SeekStart); err != nil {
+	if _, err = task.File.Seek(task.HasDoneBytes, io.SeekStart); err != nil {
 		log.Errorf("file seeks to %+v error: %+v", task.HasDoneBytes, err)
 	}
 
 	for {
-		written, err := io.Copy(task.Conn, task.FileHandle)
+		log.Infof("reading data from file=%s...", task.FileInfo.FilePath)
+		n, err := io.Copy(task.Conn, task.File)
 		if err != nil {
-			if err == io.EOF {
-				log.Infof("conn has been closed")
-			} else {
-				log.Errorf("write conn failed: err=%+v", err)
-			}
+			log.Errorf("failed to copy data from file to conn, filePath=%s, err=%v", task.FileInfo.FilePath, err)
 			break
 		}
+		log.Infof("copy %v bytes from file=%s", n, task.FileInfo.FilePath)
 
-		task.HasDoneBytes += written
-		task.LastAcessTime = time.Now().Unix()
+		task.HasDoneBytes += n
+		task.LastAccessTime = time.Now().Unix()
 		if task.HasDoneBytes >= task.FileInfo.Size {
 			log.Infof("task finished: task=%+v", task)
 			break
 		}
 	}
 
+	if task.OnEnd != nil {
+		task.OnEnd()
+	}
+
 	ft.deleteTask(task.Id)
 }
 
 func (ft *FileTransferor) UploadHandle(task *DataTask) {
-	filePath := utils.AccountFilePath(task.Account, task.FileInfo.FilePath)
-
-	file, err := ft.env.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		log.Errorf("open file %+v error: %+v", filePath, err)
-		// todo: notify account by message channel
-		return
-	}
-	if err = file.Truncate(task.HasDoneBytes); err != nil {
+	if err := task.File.Truncate(task.HasDoneBytes); err != nil {
 		log.Errorf("failed to truncated file, err=%+v, task=%+v", err, task)
 		return
 	}
 
-	defer file.Close()
-
 	for {
-		read, err := io.Copy(file, task.Conn)
+		log.Infof("reading data to file=%s...", task.FileInfo.FilePath)
+		read, err := io.Copy(task.File, task.Conn)
 		if err != nil {
 			if err == io.EOF {
 				log.Infof("conn has been closed")
 			} else {
-				log.Errorf("read conn failed: err=%+v", err)
+				log.Errorf("read conn fail ed: err=%+v", err)
 			}
 
 			break
 		}
+		log.Infof("copy %v bytes to file=%s", read, task.FileInfo.FilePath)
 
 		task.HasDoneBytes += read
-		task.LastAcessTime = time.Now().Unix()
+		task.LastAccessTime = time.Now().Unix()
 		if task.HasDoneBytes >= task.FileInfo.Size {
 			log.Infof("task finished: %+v", task)
 			break
 		}
+	}
+
+	if task.OnEnd != nil {
+		task.OnEnd()
 	}
 
 	ft.deleteTask(task.Id)
@@ -231,7 +203,7 @@ func (ft *FileTransferor) GcMaintenance() {
 			task := value.(*DataTask)
 
 			// No response for a long time
-			if time.Now().Unix()-atomic.LoadInt64(&task.LastAcessTime) >= consts.DataTaskExpireTime {
+			if time.Now().Unix()-atomic.LoadInt64(&task.LastAccessTime) >= consts.DataTaskExpireTime {
 				tasksShouldBeDeleted = append(tasksShouldBeDeleted, task)
 			}
 

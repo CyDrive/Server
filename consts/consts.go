@@ -1,6 +1,7 @@
 package consts
 
-import . "github.com/CyDrive/types"
+type AccountStoreType = string
+type MessageStoreType = string
 
 const (
 	HttpListenPort              = 6454
@@ -28,12 +29,16 @@ const (
 	EnvTypeRemote = "remote"
 
 	TimeFormat = "2006-01-02 15.04.05"
-	
+
 	DataTaskExpireTime int64 = 30 * 60
 
 	RemoteFileHandleBufferSize = 4 * 1024 * 1024
 
+	FileTransferorDownloadBufferSize = 4 * 1024 * 1024
+
 	O_NeedFileInfo = 2048
 
 	ShortUriCharSetSize = 36
+
+	ReportFileInfoBatchSize = 10
 )
