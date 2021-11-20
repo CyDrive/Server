@@ -103,12 +103,10 @@ type RemoteEnv struct {
 }
 
 func NewRemoteEnv(nodeManager *managers.NodeManager, fileTransferor *network.FileTransferor) *RemoteEnv {
-	metaMap := &sync.Map{}
-	metaMap.Store("data/1", &[]string{})
 	return &RemoteEnv{
 		nodeManager:    nodeManager,
 		fileTransferor: fileTransferor,
-		metaMap:        metaMap,
+		metaMap:        &sync.Map{},
 	}
 }
 
