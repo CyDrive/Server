@@ -95,12 +95,6 @@ func (file *RemoteFile) Chmod(mode os.FileMode) error {
 }
 
 func (file *RemoteFile) Close() error {
-	// var err error = nil
-	// if err = file.writer.Close(); err != nil {
-	// 	return err
-	// }
-	// err = file.reader.Close()
-	// return err
 	return file.writer.Close()
 }
 
@@ -112,27 +106,4 @@ func (file *RemoteFile) Write(p []byte) (n int, err error) {
 
 func (file *RemoteFile) Read(p []byte) (n int, err error) {
 	return file.reader.Read(p)
-	// if file.cacheFile == nil {
-	// }
-	// n, err = file.cacheFile.Read(p)
-
-	// // we think of the err = io.EOF as err = nil
-	// // and always return the file.Err if there're both errors
-	// // +--------+----------+--------+
-	// // |  err   | file.Err | return |
-	// // +--------+----------+--------+
-	// // | nil    | nil      | nil    |
-	// // | io.EOF | nil      | nil    |
-	// // | io.EOF | error    | error  |
-	// // | error  | nil      | error  |
-	// // | error1 | error2   | error2 |
-	// // +--------+----------+--------+
-	// if err == io.EOF {
-	// 	err = nil
-	// }
-	// if file.Err != nil {
-	// 	err = file.Err
-	// }
-
-	// return n, err
 }

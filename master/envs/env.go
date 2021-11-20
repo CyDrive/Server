@@ -166,8 +166,6 @@ func (env *RemoteEnv) MkdirAll(path string, perm os.FileMode) error {
 		_, exist := env.metaMap.LoadOrStore(path, &[]string{})
 		if exist {
 			return nil
-		} else {
-			fmt.Printf("mkdir for path=%s\n", path)
 		}
 
 		path = filepath.Dir(path)
@@ -232,7 +230,6 @@ func (env *RemoteEnv) SetFileInfo(name string, fileInfo *models.FileInfo) error 
 	isNewEntry := !ok
 
 	if !fileInfo.IsDir {
-		fmt.Printf("store file info, path=%s, fileInfo=%+v\n", name, fileInfo)
 		env.metaMap.Store(name, fileInfo)
 	}
 

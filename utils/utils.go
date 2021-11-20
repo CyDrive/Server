@@ -178,7 +178,6 @@ func GetResp(resp *http.Response) *models.Response {
 func ForEachFile(path string, handle func(file *os.File)) {
 	fileinfo, err := os.Stat(path)
 	if err != nil {
-		fmt.Println(err, path)
 		return
 	}
 	if !fileinfo.IsDir() {
@@ -202,7 +201,6 @@ func ForEachRemoteFile(path string,
 
 	fileInfo := getFileInfo(path)
 	if fileInfo == nil {
-		fmt.Println("can't get file info:", path)
 		return
 	}
 	if !fileInfo.IsDir {
