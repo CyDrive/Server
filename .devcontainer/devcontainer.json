@@ -35,9 +35,7 @@
     "forwardPorts": [
         6454,
         6455,
-        6456,
-        10808,
-        10809
+        6456
     ],
     // Use 'postCreateCommand' to run commands after the container is created.
     // "postCreateCommand": "go version",
