@@ -68,12 +68,18 @@ func (s *NodeManageServer) Notifier(req *rpc.ConnectNotifierRequest, stream rpc.
 }
 
 func (s *NodeManageServer) ReportFileInfos(ctx context.Context, req *rpc.ReportFileInfosRequest) (*rpc.ReportFileInfosResponse, error) {
+	log.Infof("req=%+v", req)
+
 	for _, fileInfo := range req.FileInfos {
 		// update MetaMap
+		log.Infof("set file info: filepath=%s, fileInfo=%+v", fileInfo.FilePath, fileInfo)
 		GetEnv().SetFileInfo(fileInfo.FilePath, fileInfo)
 
 		// record the node to serve the file
 		node := GetNodeManager().GetNode(req.Id)
+		if node == nil {
+			panic("forget to add node into node manager")
+		}
 		GetNodeManager().AssignFile(fileInfo.FilePath, node)
 	}
 

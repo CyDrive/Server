@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/CyDrive/config"
+	"github.com/CyDrive/consts"
 	"github.com/CyDrive/network"
 	"github.com/CyDrive/rpc"
 	"github.com/CyDrive/types"
 	"github.com/CyDrive/utils"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -142,22 +144,21 @@ func (nm *NodeManager) PrepareReadFile(taskId types.TaskId, filePath string) err
 	// now we just pick the first node
 	nodes := nodesI.([]*Node)
 	node := nodes[0]
-	node.NotifyChan <- utils.PackCreateTransferFileTaskNotification(taskId, config.IpAddr, filePath)
+
+	notify := utils.PackCreateTransferFileTaskNotification(taskId, config.IpAddr, filePath, consts.DataTaskType_Upload)
+	log.Infof("send notification to channel, notify=%+v", notify)
+	node.NotifyChan <- notify
 
 	return nil
 }
 
 func (nm *NodeManager) PrepareWriteFile(taskId types.TaskId, filePath string) error {
-	nodesI, ok := nm.fileMap.Load(filePath)
-	if !ok {
-		return os.ErrNotExist
-	}
+	nodes := nm.GetNodesByFilePath(filePath)
 
 	// todo: load-balance
 	// now we just pick the first node
-	nodes := nodesI.([]*Node)
 	node := nodes[0]
-	node.NotifyChan <- utils.PackCreateTransferFileTaskNotification(taskId, config.IpAddr, filePath)
+	node.NotifyChan <- utils.PackCreateTransferFileTaskNotification(taskId, config.IpAddr, filePath, consts.DataTaskType_Download)
 
 	return nil
 }

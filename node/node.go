@@ -88,9 +88,11 @@ func (node *StorageNode) Start() {
 		}
 	}()
 
-	go node.ReportFileInfos()
+	log.Infof("reporting files...")
+	node.ReportFileInfos()
 
 	// process notifications
+	log.Infof("setup done, start to process notifications")
 	node.ProcessNotifications()
 }
 

@@ -95,12 +95,13 @@ func (file *RemoteFile) Chmod(mode os.FileMode) error {
 }
 
 func (file *RemoteFile) Close() error {
-	var err error = nil
-	if err = file.writer.Close(); err != nil {
-		return err
-	}
-	err = file.reader.Close()
-	return err
+	// var err error = nil
+	// if err = file.writer.Close(); err != nil {
+	// 	return err
+	// }
+	// err = file.reader.Close()
+	// return err
+	return file.writer.Close()
 }
 
 // write the data from node to the buffer

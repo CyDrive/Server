@@ -121,9 +121,12 @@ func (env *RemoteEnv) Open(name string) (types.FileHandle, error) {
 	file := NewRemoteFile(os.O_RDONLY, 0666, fileInfo)
 	task := env.fileTransferor.CreateTask(fileInfo, file, consts.DataTaskType_Upload, 0)
 	task.OnEnd = func() {
-		file.writer.Close()
+		file.Close()
 	}
-	env.nodeManager.PrepareReadFile(task.Id, name)
+	err := env.nodeManager.PrepareReadFile(task.Id, name)
+	if err != nil {
+		return nil, err
+	}
 
 	return file, nil
 }
@@ -137,16 +140,19 @@ func (env *RemoteEnv) OpenFile(name string, flag int, perm os.FileMode) (types.F
 	file := NewRemoteFile(flag, perm, fileInfo)
 	task := env.fileTransferor.CreateTask(fileInfo, file, consts.DataTaskType_Download, 0)
 	task.OnEnd = func() {
-		file.reader.Close()
+		file.Close()
 
 		dir := filepath.Dir(name)
-		subFoldersI, _ := env.metaMap.Load(dir)
-		subFolders := subFoldersI.(*[]string)
+		entriesI, _ := env.metaMap.Load(dir)
+		subFolders := entriesI.(*[]string)
 		*subFolders = append(*subFolders, name)
 		fileInfo, _ := file.Stat()
-		env.metaMap.Store(name, fileInfo)
+		env.SetFileInfo(name, fileInfo)
 	}
-	env.nodeManager.PrepareReadFile(task.Id, name)
+	err := env.nodeManager.PrepareWriteFile(task.Id, name)
+	if err != nil {
+		return nil, err
+	}
 
 	return file, nil
 }
@@ -160,6 +166,8 @@ func (env *RemoteEnv) MkdirAll(path string, perm os.FileMode) error {
 		_, exist := env.metaMap.LoadOrStore(path, &[]string{})
 		if exist {
 			return nil
+		} else {
+			fmt.Printf("mkdir for path=%s\n", path)
 		}
 
 		path = filepath.Dir(path)
@@ -206,7 +214,8 @@ func (env *RemoteEnv) ReadDir(dirname string) ([]*models.FileInfo, error) {
 				IsDir:    true,
 			})
 		} else {
-			fileInfoList = append(fileInfoList, fileInfo)
+			copyFileInfo := *fileInfo
+			fileInfoList = append(fileInfoList, &copyFileInfo)
 		}
 	}
 
@@ -219,23 +228,29 @@ func (env *RemoteEnv) SetFileInfo(name string, fileInfo *models.FileInfo) error 
 		return err
 	}
 
+	_, ok := env.metaMap.Load(name)
+	isNewEntry := !ok
+
 	if !fileInfo.IsDir {
+		fmt.Printf("store file info, path=%s, fileInfo=%+v\n", name, fileInfo)
 		env.metaMap.Store(name, fileInfo)
 	}
 
-	dir := filepath.Dir(name)
-	if dir != "." {
-		subFoldersI, ok := env.metaMap.Load(dir)
-		if !ok {
-			panic("forget to mkdir for this folder: " + dir + ", the filepath is " + name)
-		}
+	if isNewEntry {
+		dir := filepath.Dir(name)
+		if dir != "." {
+			entriesI, ok := env.metaMap.Load(dir)
+			if !ok {
+				panic("forget to mkdir for this folder: " + dir + ", the filepath is " + name)
+			}
 
-		subFolders, ok := subFoldersI.(*[]string)
-		if !ok {
-			panic("not a folder: " + dir)
-		}
+			entries, ok := entriesI.(*[]string)
+			if !ok {
+				panic("not a folder: " + dir)
+			}
 
-		*subFolders = append(*subFolders, name)
+			*entries = append(*entries, name)
+		}
 	}
 
 	return nil

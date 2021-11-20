@@ -49,7 +49,7 @@ func (node *StorageNode) HeartBeat() {
 		return
 	}
 
-	log.Infof("heartbeat with req=%+v", req)
+	// log.Infof("heartbeat with req=%+v", req)
 }
 
 func (node *StorageNode) ProcessNotifications() {
@@ -93,7 +93,7 @@ func (node *StorageNode) ReportFileInfos() {
 			return err
 		}
 
-		path = strings.ReplaceAll(path, "\\", "/")
+		path = strings.Trim(strings.ReplaceAll(path, "\\", "/"), "/")
 
 		req.FileInfos = append(req.FileInfos, utils.NewFileInfo(info, path))
 		if len(req.FileInfos) >= consts.ReportFileInfoBatchSize {

@@ -201,11 +201,18 @@ func DownloadHandle(c *gin.Context) {
 	account := userI.(*models.Account)
 
 	// relative path
-	filePath := c.Param("path")
+	filePath := strings.Trim(c.Param("path"), "/")
 
 	// absolute filepath
 	filePath = utils.AccountFilePath(account, filePath)
-	fileInfo, _ := GetEnv().Stat(filePath)
+	fileInfo, err := GetEnv().Stat(filePath)
+	log.Infof("read file info for filePath=%s, fileInfo=%+v", filePath, fileInfo)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to get file info of filePath=%s, err=%v", filePath, err)
+		log.Error(errMsg)
+		utils.Response(c, consts.StatusCode_IoError, errMsg)
+		return
+	}
 
 	if fileInfo.IsDir {
 		c.JSON(http.StatusOK, models.Response{
@@ -229,16 +236,16 @@ func DownloadHandle(c *gin.Context) {
 		return
 	}
 
-	uFileInfo := fileInfo
+	uFileInfo := *fileInfo
 	uFileInfo.FilePath, _ = filepath.Rel(utils.GetAccountDataDir(account.Id), uFileInfo.FilePath)
 	uFileInfo.FilePath = strings.ReplaceAll(uFileInfo.FilePath, "\\", "/")
 
 	log.Infof("clientIp=%+v", c.ClientIP())
-	task := GetFileTransferor().CreateTask(uFileInfo, file, consts.DataTaskType_Download, begin)
+	task := GetFileTransferor().CreateTask(&uFileInfo, file, consts.DataTaskType_Download, begin)
 	resp := models.DownloadResponse{
 		NodeAddr: config.IpAddr + consts.FileTransferorListenPortStr,
 		TaskId:   task.Id,
-		FileInfo: uFileInfo,
+		FileInfo: &uFileInfo,
 	}
 	log.Infof("downloadResp=%+v", resp)
 	respBytes, err := utils.GetJsonEncoder().Marshal(&resp)
@@ -261,7 +268,7 @@ func UploadHandle(c *gin.Context) {
 	userI, _ := c.Get("account")
 	account := userI.(*models.Account)
 
-	filePath := c.Param("path")
+	filePath := strings.Trim(c.Param("path"), "/")
 	filePath = utils.AccountFilePath(account, filePath)
 
 	jsonBytes, err := ioutil.ReadAll(c.Request.Body)
@@ -317,10 +324,12 @@ func UploadHandle(c *gin.Context) {
 	GetEnv().SetFileInfo(filePath, fileInfo)
 	file, err := GetEnv().OpenFile(filePath, flags, 0666)
 	if err != nil {
-		utils.Response(c, consts.StatusCode_IoError, fmt.Sprintf("failed to open file %s, err=%v", filePath, err))
+		errMsg := fmt.Sprintf("failed to open file %s, err=%v", filePath, err)
+		log.Error(errMsg)
+		utils.Response(c, consts.StatusCode_IoError, errMsg)
 		return
 	}
-	task := GetFileTransferor().CreateTask(fileInfo, file, consts.DataTaskType_Upload, fileInfo.Size)
+	task := GetFileTransferor().CreateTask(fileInfo, file, consts.DataTaskType_Upload, 0)
 
 	GetAccountStore().AddUsage(account.Email, fileInfo.Size)
 

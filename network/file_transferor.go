@@ -62,8 +62,6 @@ func (ft *FileTransferor) Listen() {
 			log.Errorf("accept tcp connection error: %+v", err)
 		}
 
-		log.Infof("connection from: %+v", conn.RemoteAddr())
-
 		go ft.ProcessConn(conn)
 	}
 }
@@ -106,6 +104,8 @@ func (ft *FileTransferor) ProcessConn(conn *net.TCPConn) {
 		return
 	}
 
+	log.Infof("connection from: %+v, taskId=%+v", conn.RemoteAddr(), taskId)
+
 	taskI, ok := ft.taskMap.Load(taskId)
 	if !ok {
 		log.Errorf("task not exist, taskId=%+v", taskId)
@@ -137,34 +137,16 @@ func (ft *FileTransferor) DownloadHandle(task *DataTask) {
 		log.Errorf("file seeks to %+v error: %+v", task.HasDoneBytes, err)
 	}
 
-	buffer := make([]byte, consts.FileTransferorDownloadBufferSize)
 	for {
-		n, err := task.File.Read(buffer)
-
-		if err == io.EOF && task.HasDoneBytes < task.FileInfo.Size { // the file is still writting, but the read meets a EOF
-			log.Infof("waiting for writting to finish...")
-			time.Sleep(200 * time.Millisecond)
-			continue
-		} else if err != nil {
-			if err == io.EOF {
-				log.Infof("have read the entire file")
-			} else {
-				log.Errorf("failed to read the file, err=%+v", err)
-			}
-			break
-		}
-
-		written, err := task.Conn.Write(buffer[:n])
+		log.Infof("reading data from file=%s...", task.FileInfo.FilePath)
+		n, err := io.Copy(task.Conn, task.File)
 		if err != nil {
-			log.Errorf("write conn failed: err=%+v", err)
+			log.Errorf("failed to copy data from file to conn, filePath=%s, err=%v", task.FileInfo.FilePath, err)
 			break
 		}
+		log.Infof("copy %v bytes from file=%s", n, task.FileInfo.FilePath)
 
-		if written != n {
-			panic("the written bytes is less than the read")
-		}
-
-		task.HasDoneBytes += int64(written)
+		task.HasDoneBytes += n
 		task.LastAccessTime = time.Now().Unix()
 		if task.HasDoneBytes >= task.FileInfo.Size {
 			log.Infof("task finished: task=%+v", task)
@@ -186,6 +168,7 @@ func (ft *FileTransferor) UploadHandle(task *DataTask) {
 	}
 
 	for {
+		log.Infof("reading data to file=%s...", task.FileInfo.FilePath)
 		read, err := io.Copy(task.File, task.Conn)
 		if err != nil {
 			if err == io.EOF {
@@ -196,6 +179,7 @@ func (ft *FileTransferor) UploadHandle(task *DataTask) {
 
 			break
 		}
+		log.Infof("copy %v bytes to file=%s", read, task.FileInfo.FilePath)
 
 		task.HasDoneBytes += read
 		task.LastAccessTime = time.Now().Unix()
