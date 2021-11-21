@@ -78,6 +78,11 @@ func (node *StorageNode) ProcessNotifications() {
 			} else if notification.TaskType == consts.DataTaskType_Upload {
 				go node.UploadFile(notification.TaskId, notification.FilePath, notification.Addr+consts.FileTransferorListenPortStr)
 			}
+
+		case *rpc.Notify_DeleteFileNotification:
+			notification := notify.DeleteFileNotification
+			log.Infof("recv delete file notification: %+v", notification)
+			os.RemoveAll(notification.FilePath)
 		}
 	}
 }
