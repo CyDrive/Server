@@ -156,6 +156,7 @@ func (env *RemoteEnv) OpenFile(name string, flag int, perm os.FileMode) (types.F
 }
 
 func (env *RemoteEnv) RemoveAll(path string) error {
+	env.nodeManager.NotifyDeleteFile(path)
 	return nil
 }
 

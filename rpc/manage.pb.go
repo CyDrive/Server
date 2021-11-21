@@ -450,6 +450,7 @@ type Notify struct {
 
 	// Types that are assignable to Notify:
 	//	*Notify_TransferFileNotification
+	//	*Notify_DeleteFileNotification
 	Notify isNotify_Notify `protobuf_oneof:"notify"`
 }
 
@@ -499,6 +500,13 @@ func (x *Notify) GetTransferFileNotification() *TransferFileNotification {
 	return nil
 }
 
+func (x *Notify) GetDeleteFileNotification() *DeleteFileNotification {
+	if x, ok := x.GetNotify().(*Notify_DeleteFileNotification); ok {
+		return x.DeleteFileNotification
+	}
+	return nil
+}
+
 type isNotify_Notify interface {
 	isNotify_Notify()
 }
@@ -507,7 +515,13 @@ type Notify_TransferFileNotification struct {
 	TransferFileNotification *TransferFileNotification `protobuf:"bytes,1,opt,name=transfer_file_notification,json=transferFileNotification,proto3,oneof"`
 }
 
+type Notify_DeleteFileNotification struct {
+	DeleteFileNotification *DeleteFileNotification `protobuf:"bytes,2,opt,name=delete_file_notification,json=deleteFileNotification,proto3,oneof"`
+}
+
 func (*Notify_TransferFileNotification) isNotify_Notify() {}
+
+func (*Notify_DeleteFileNotification) isNotify_Notify() {}
 
 type TransferFileNotification struct {
 	state         protoimpl.MessageState
@@ -897,6 +911,7 @@ func file_rpc_manage_proto_init() {
 	}
 	file_rpc_manage_proto_msgTypes[7].OneofWrappers = []interface{}{
 		(*Notify_TransferFileNotification)(nil),
+		(*Notify_DeleteFileNotification)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
