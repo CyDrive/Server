@@ -1,9 +1,18 @@
 # CyDrive
 
+## Dev Environment
+You can dev within the devcontainer, without installing any requirements.
+
+**NOTE: You may need set proxy for git, or something else, the container would resolve `host.docker.internal` to the host address like:**
+```shell
+git config --global http.proxy [http/socks5]://host.docker.internal:[port]
+git config --global https.proxy [http/socks5]://host.docker.internal:[port]
+```
+
 ## Requirements
 
-### Optional
-1. You need to install protobuf compiler if you have to modify the proto files, please follow this [installation guide](https://grpc.io/docs/protoc-installation/). For generating different language codes, you may need another plugins, the makefile of this repo **only install the required plugins of itself** (for go and gorm).
+- protobuf-compiler: You need to install protobuf compiler if you have to modify the proto files, please follow this [installation guide](https://grpc.io/docs/protoc-installation/). For generating different language codes, you may need another plugins, the makefile of this repo **only install the required plugins of itself**
+- proto-gen-go: 
 ## Structure
 CyDrive consists of two parts: Master and Storage Nodes. They are located in the `master` dir and `node` dir, and the common parts of them are located in the root dir of this repo:
 - config: configuration definitions
