@@ -157,6 +157,25 @@ func (env *RemoteEnv) OpenFile(name string, flag int, perm os.FileMode) (types.F
 
 func (env *RemoteEnv) RemoveAll(path string) error {
 	env.nodeManager.NotifyDeleteFile(path)
+	env.RemoveAllMeta(path)
+	return nil
+}
+
+func (env *RemoteEnv) RemoveAllMeta(path string) error {
+	entriesI, ok := env.metaMap.Load(path)
+	if !ok {
+		return nil
+	}
+
+	entries, ok := entriesI.([]string)
+	env.metaMap.Delete(path)
+	if !ok { // this is a file
+		return nil
+	}
+	for _, entry := range entries {
+		env.RemoveAllMeta(entry)
+	}
+
 	return nil
 }
 
