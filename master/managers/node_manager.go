@@ -108,7 +108,14 @@ func (nm *NodeManager) ChangeNodeState(id int32, state consts.NodeState) {
 }
 
 func (nm *NodeManager) GetNodesByFilePath(filePath string) []*Node {
-	nodes := nm.getNodesByFilePath(filePath)
+	nodesI := nm.getNodesByFilePath(filePath)
+
+	nodes := make([]*Node, 0, 1)
+	for _, node := range nodesI {
+		if node.State == consts.NodeState_Running {
+			nodes = append(nodes, node)
+		}
+	}
 
 	if len(nodes) == 0 { // this is a new file, assign a node to serve it
 		node := nm.PickNode()
@@ -131,6 +138,7 @@ func (nm *NodeManager) getNodesByFilePath(filePath string) []*Node {
 				nodes = append(nodes, node)
 			}
 		}
+		nm.fileMap.Store(filePath, nodes)
 	}
 
 	return nodes
@@ -145,12 +153,16 @@ func (nm *NodeManager) AssignFile(filePath string, node *Node) []*Node {
 }
 
 func (nm *NodeManager) dropNode(id int32) {
-	nm.nodeMap.Delete(id)
-	atomic.AddInt32(&nm.nodeNum, -1)
+	node := nm.GetNode(id)
+	if node.State == consts.NodeState_Dropping {
+		nm.nodeMap.Delete(id)
+		atomic.AddInt32(&nm.nodeNum, -1)
+	} else {
+		panic("forget to set the node state to Dropping")
+	}
 }
 
 func (nm *NodeManager) NodeHealthMaintenance() {
-	// panic("unimplemented")
 	for {
 		removedNodes := make([]int32, 0, 1)
 		nm.nodeMap.Range(func(key, value interface{}) bool {
