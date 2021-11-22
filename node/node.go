@@ -24,6 +24,7 @@ type StorageNode struct {
 	Id      int32
 	Usage   int64
 	TaskNum int32
+	State   consts.NodeState
 
 	heartBeatTimer   *time.Timer
 	conn             *grpc.ClientConn
@@ -48,6 +49,7 @@ func NewStorageNode(config *config.Config) *StorageNode {
 		Config: config,
 		Usage:  usage,
 
+		State:          consts.NodeState_Starting,
 		heartBeatTimer: time.NewTimer(250 * time.Millisecond),
 	}
 

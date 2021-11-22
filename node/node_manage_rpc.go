@@ -40,6 +40,7 @@ func (node *StorageNode) HeartBeat() {
 		StorageUsage:    node.Usage,
 		CpuUsagePercent: 0,
 		TaskNum:         node.TaskNum,
+		State:           node.State,
 	}
 
 	ctx, _ := context.WithTimeout(context.Background(), 250*time.Millisecond)
@@ -120,4 +121,5 @@ func (node *StorageNode) ReportFileInfos() {
 		log.Errorf("failed to report file infos, err=%v, fileInfos=%+v", err, req.FileInfos)
 		return
 	}
+	node.State = consts.NodeState_Running
 }
