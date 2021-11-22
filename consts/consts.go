@@ -12,6 +12,8 @@ const (
 	FileTransferorListenPortStr = ":6456"
 	UserDataDir                 = "user_data"
 
+	ResponseBodyLogSizeUpperbound = 4 << 10
+
 	MemAccountStoreJsonPath = "accounts.json"
 
 	// The size of file must be not greater than 1GB

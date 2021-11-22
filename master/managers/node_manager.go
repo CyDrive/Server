@@ -208,7 +208,7 @@ func (nm *NodeManager) PrepareReadFile(taskId types.TaskId, filePath string) err
 	nodes := nodesI.([]*Node)
 	node := nodes[0]
 
-	notify := utils.PackCreateTransferFileTaskNotification(taskId, config.IpAddr, filePath, consts.DataTaskType_Upload)
+	notify := utils.PackTransferFileNotification(taskId, config.IpAddr, filePath, consts.DataTaskType_Upload)
 	log.Infof("send notification to channel, notify=%+v", notify)
 	node.NotifyChan <- notify
 
@@ -221,9 +221,18 @@ func (nm *NodeManager) PrepareWriteFile(taskId types.TaskId, filePath string) er
 	// todo: load-balance
 	// now we just pick the first node
 	node := nodes[0]
-	node.NotifyChan <- utils.PackCreateTransferFileTaskNotification(taskId, config.IpAddr, filePath, consts.DataTaskType_Download)
+	node.NotifyChan <- utils.PackTransferFileNotification(taskId, config.IpAddr, filePath, consts.DataTaskType_Download)
 
 	return nil
+}
+
+func (nm *NodeManager) NotifyDeleteFile(filePath string) {
+	nm.fileMap.Delete(filePath)
+
+	nodes := nm.GetNodesByFilePath(filePath)
+	for _, node := range nodes {
+		node.NotifyChan <- utils.PackDeleteFileNotification(filePath)
+	}
 }
 
 func (nm *NodeManager) GetNotifyChan(nodeId int32) (<-chan *rpc.Notify, bool) {

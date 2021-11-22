@@ -1,6 +1,7 @@
 package master
 
 import (
+	"bytes"
 	"net/http"
 	"strings"
 	"time"
@@ -12,6 +13,16 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
+
+type responseLogWriter struct {
+	gin.ResponseWriter
+	bodyCopy *bytes.Buffer
+}
+
+func (w responseLogWriter) Write(b []byte) (int, error) {
+	w.bodyCopy.Write(b)
+	return w.ResponseWriter.Write(b)
+}
 
 func SetRequestId(router *gin.Engine) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -60,6 +71,7 @@ func LoginAuth(router *gin.Engine) gin.HandlerFunc {
 
 		// Store account struct into context
 		c.Set("account", account)
+		c.Next()
 	}
 }
 
@@ -86,14 +98,22 @@ func Log(router *gin.Engine) gin.HandlerFunc {
 			account,
 			c.Request.RemoteAddr)
 
+		blw := &responseLogWriter{bodyCopy: bytes.NewBufferString(""), ResponseWriter: c.Writer}
+		c.Writer = blw
+
 		c.Next()
 
 		var headers http.Header = nil
 		if c.Request.Response != nil {
 			headers = c.Request.Response.Header
 		}
-		log.Infof("response to request_id=%+v: headers=%+v",
+		respBody := ""
+		if blw.bodyCopy.Len() <= consts.ResponseBodyLogSizeUpperbound {
+			respBody = blw.bodyCopy.String()
+		}
+		log.Infof("response to request_id=%+v: headers=%+v body=%s",
 			requestId,
-			headers)
+			headers,
+			respBody)
 	}
 }

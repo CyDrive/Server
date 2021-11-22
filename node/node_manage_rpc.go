@@ -68,16 +68,24 @@ func (node *StorageNode) ProcessNotifications() {
 			log.Errorf("failed to recv notification, err=%v", err)
 		}
 
+		log.Infof("recv delete file notification: %+v", notify.Notify)
+
 		switch notify := notify.Notify.(type) {
 		case *rpc.Notify_TransferFileNotification:
 			notification := notify.TransferFileNotification
-			log.Infof("recv file transfer notification: %+v", notification)
 
 			node.TaskNum++
 			if notification.TaskType == consts.DataTaskType_Download {
 				go node.DownloadFile(notification.TaskId, notification.FilePath, notification.Addr+consts.FileTransferorListenPortStr)
 			} else if notification.TaskType == consts.DataTaskType_Upload {
 				go node.UploadFile(notification.TaskId, notification.FilePath, notification.Addr+consts.FileTransferorListenPortStr)
+			}
+
+		case *rpc.Notify_DeleteFileNotification:
+			notification := notify.DeleteFileNotification
+			err = os.RemoveAll(notification.FilePath)
+			if err != nil {
+				log.Errorf("failed to remove file for path=%s, err=%+v", notification.FilePath, err)
 			}
 		}
 	}

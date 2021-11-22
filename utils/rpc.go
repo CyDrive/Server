@@ -5,7 +5,7 @@ import (
 	"github.com/CyDrive/rpc"
 )
 
-func PackCreateTransferFileTaskNotification(taskId int32, addr string, filePath string, taskType consts.DataTaskType) *rpc.Notify {
+func PackTransferFileNotification(taskId int32, addr string, filePath string, taskType consts.DataTaskType) *rpc.Notify {
 	return &rpc.Notify{
 		Notify: &rpc.Notify_TransferFileNotification{
 			TransferFileNotification: &rpc.TransferFileNotification{
@@ -13,6 +13,16 @@ func PackCreateTransferFileTaskNotification(taskId int32, addr string, filePath 
 				Addr:     addr,
 				FilePath: filePath,
 				TaskType: taskType,
+			},
+		},
+	}
+}
+
+func PackDeleteFileNotification(filePath string) *rpc.Notify {
+	return &rpc.Notify{
+		Notify: &rpc.Notify_DeleteFileNotification{
+			DeleteFileNotification: &rpc.DeleteFileNotification{
+				FilePath: filePath,
 			},
 		},
 	}

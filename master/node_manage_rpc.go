@@ -62,6 +62,17 @@ func (s *NodeManageServer) Notifier(req *rpc.ConnectNotifierRequest, stream rpc.
 				log.Errorf("failed to notify, err=%v", err)
 				break
 			}
+
+		case *rpc.Notify_DeleteFileNotification:
+			log.Infof("notify node=%v, notification=%+v", req.NodeId, notify)
+
+			err := stream.Send(&rpc.Notify{
+				Notify: notify,
+			})
+			if err != nil {
+				log.Errorf("failed to notify, err=%v", err)
+				break
+			}
 		}
 	}
 

@@ -49,7 +49,10 @@ message ReportFileInfosResponse {}
 message ConnectNotifierRequest { int32 node_id = 1; }
 
 message Notify {
-  oneof notify { TransferFileNotification transfer_file_notification = 1; }
+  oneof notify {
+    TransferFileNotification transfer_file_notification = 1;
+    DeleteFileNotification delete_file_notification = 2;
+  }
 }
 
 message TransferFileNotification {
