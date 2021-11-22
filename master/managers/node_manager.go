@@ -30,6 +30,7 @@ type Node struct {
 	Usage             int64
 	Cap               int64
 	LastHeartBeatTime time.Time
+	State             consts.NodeState
 
 	NotifyChan chan *rpc.Notify
 }
@@ -41,12 +42,14 @@ func NewNode(cap, usage int64, addr string) *Node {
 		Usage:             usage,
 		Cap:               cap,
 		LastHeartBeatTime: time.Now(),
+		State:             consts.NodeState_Starting,
 		NotifyChan:        make(chan *rpc.Notify, 100),
 	}
 }
 
 const (
-	HeartBeatTimeout = 500 // in ms
+	HeartBeatTimeout = 500  // in ms
+	OfflineTimeout   = 3000 // in second
 )
 
 type NodeManager struct {
@@ -55,6 +58,7 @@ type NodeManager struct {
 
 	fileTransferor *network.FileTransferor
 	nodeNum        int32
+	runningNodeNum int32
 }
 
 func NewNodeManager(fileTransferor *network.FileTransferor) *NodeManager {
@@ -63,9 +67,23 @@ func NewNodeManager(fileTransferor *network.FileTransferor) *NodeManager {
 		fileMap:        &sync.Map{},
 		fileTransferor: fileTransferor,
 		nodeNum:        0,
+		runningNodeNum: 0,
 	}
 
 	return &nodeManager
+}
+
+func (nm *NodeManager) changeNodeState(node *Node, state consts.NodeState) {
+	if node.State == state {
+		return
+	}
+	if node.State == consts.NodeState_Running {
+		atomic.AddInt32(&nm.runningNodeNum, -1)
+	}
+	if state == consts.NodeState_Running {
+		atomic.AddInt32(&nm.runningNodeNum, 1)
+	}
+	node.State = state
 }
 
 func (nm *NodeManager) AddNode(node *Node) {
@@ -80,6 +98,13 @@ func (nm *NodeManager) GetNode(id int32) *Node {
 	}
 
 	return value.(*Node)
+}
+
+func (nm *NodeManager) ChangeNodeState(id int32, state consts.NodeState) {
+	node := nm.GetNode(id)
+	if node != nil {
+		nm.changeNodeState(node, state)
+	}
 }
 
 func (nm *NodeManager) GetNodesByFilePath(filePath string) []*Node {
@@ -100,7 +125,12 @@ func (nm *NodeManager) getNodesByFilePath(filePath string) []*Node {
 		nodes = []*Node{}
 		nm.fileMap.Store(filePath, nodes)
 	} else {
-		nodes = nodesI.([]*Node)
+		nodes := make([]*Node, 0, 1)
+		for _, node := range nodesI.([]*Node) {
+			if node.State != consts.NodeState_Dropping {
+				nodes = append(nodes, node)
+			}
+		}
 	}
 
 	return nodes
@@ -114,24 +144,45 @@ func (nm *NodeManager) AssignFile(filePath string, node *Node) []*Node {
 	return nodes
 }
 
-func (nm *NodeManager) DropNode(node *Node) {
-	panic("unimplemented")
+func (nm *NodeManager) dropNode(id int32) {
+	nm.nodeMap.Delete(id)
+	atomic.AddInt32(&nm.nodeNum, -1)
 }
 
 func (nm *NodeManager) NodeHealthMaintenance() {
-	panic("unimplemented")
-	// for {
-	// 	nodes := nm.nodes
-	// 	removedNodes := make([]*Node, 0, 1)
+	// panic("unimplemented")
+	for {
+		removedNodes := make([]int32, 0, 1)
+		nm.nodeMap.Range(func(key, value interface{}) bool {
+			id := key.(int32)
+			node := value.(*Node)
+			if time.Now().Sub(node.LastHeartBeatTime).Milliseconds() >= HeartBeatTimeout {
+				nm.changeNodeState(node, consts.NodeState_Offline)
+			}
+			if time.Now().Sub(node.LastHeartBeatTime).Seconds() >= OfflineTimeout {
+				nm.changeNodeState(node, consts.NodeState_Dropping)
+				removedNodes = append(removedNodes, id)
+			}
+			return true
+		})
 
-	// 	for _, node := range nodes {
-	// 		// HeartBeat timeout, drop this node
-	// 		if time.Now().Sub(node.LastHeartBeatTime).Milliseconds() >= HeartBeatTimeout {
-	// 			removedNodes = append(removedNodes, node)
-	// 		}
-	// 	}
+		nm.fileMap.Range(func(key, value interface{}) bool {
+			nodesI := value.([]*Node)
+			nodes := make([]*Node, 0, 1)
+			for _, node := range nodesI {
+				if node.State != consts.NodeState_Dropping {
+					nodes = append(nodes, node)
+				}
+			}
 
-	// }
+			nm.fileMap.Store(key, nodes)
+			return true
+		})
+
+		for _, id := range removedNodes {
+			nm.dropNode(id)
+		}
+	}
 }
 
 func (nm *NodeManager) PrepareReadFile(taskId types.TaskId, filePath string) error {
@@ -177,8 +228,8 @@ func (nm *NodeManager) GetNotifyChan(nodeId int32) (<-chan *rpc.Notify, bool) {
 // if num is greater than the number of nodes, return all nodes
 // note: the returned slice is not sorted!
 func (nm *NodeManager) PickNodes(num int) []*Node {
-	if num >= int(nm.nodeNum) {
-		num = int(nm.nodeNum)
+	if num >= int(nm.runningNodeNum) {
+		num = int(nm.runningNodeNum)
 	}
 
 	allNodes := make([]*Node, 0, nm.nodeNum)
@@ -187,7 +238,10 @@ func (nm *NodeManager) PickNodes(num int) []*Node {
 		return true
 	})
 	sort.Slice(allNodes, func(i, j int) bool {
-		return allNodes[i].Cap-allNodes[i].Usage > allNodes[j].Cap-allNodes[j].Usage
+		if allNodes[i].State == allNodes[j].State {
+			return allNodes[i].Cap-allNodes[i].Usage > allNodes[j].Cap-allNodes[j].Usage
+		}
+		return allNodes[i].State == consts.NodeState_Running
 	})
 
 	nodes := make([]*Node, 0, num)

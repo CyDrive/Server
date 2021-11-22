@@ -38,6 +38,7 @@ func (s *NodeManageServer) HeartBeats(ctx context.Context, req *rpc.HeartBeatsRe
 	}
 
 	node.LastHeartBeatTime = time.Now()
+	nodeManager.ChangeNodeState(node, req.State)
 
 	resp := &rpc.HeartBeatsResponse{}
 	return resp, nil
