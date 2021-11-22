@@ -6,26 +6,33 @@ option csharp_namespace = "CyDrive";
 package consts;
 
 enum MessageType {
-    Text = 0;
-    Image = 1;
-    Audio = 2;
-    Video = 3;
-    File = 4;
-    Notification = 5;
+  Text = 0;
+  Image = 1;
+  Audio = 2;
+  Video = 3;
+  File = 4;
+  Notification = 5;
 }
 
 enum DataTaskType {
-    Download = 0;
-    Upload = 1;
+  Download = 0;
+  Upload = 1;
 }
 
 enum StatusCode {
-    Ok = 0;
-    AuthError = 1;
-    NeedParameters = 2;
-    InvalidParameters = 4;
-    FileTooLarge = 8;
-    IoError = 16;
-    InternalError = 32;
-    SessionError = 64;
+  Ok = 0;
+  AuthError = 1;
+  NeedParameters = 2;
+  InvalidParameters = 4;
+  FileTooLarge = 8;
+  IoError = 16;
+  InternalError = 32;
+  SessionError = 64;
+}
+
+enum NodeState {
+  Running = 0;
+  Starting = 1;
+  Offline = 2;
+  Dropping = 3;
 }
