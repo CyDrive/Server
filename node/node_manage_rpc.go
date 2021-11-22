@@ -83,7 +83,10 @@ func (node *StorageNode) ProcessNotifications() {
 		case *rpc.Notify_DeleteFileNotification:
 			notification := notify.DeleteFileNotification
 			log.Infof("recv delete file notification: %+v", notification)
-			os.RemoveAll(notification.FilePath)
+			err = os.RemoveAll(notification.FilePath)
+			if err != nil {
+				log.Errorf("failed to remove file for path=%s, err=%+v", notification.FilePath, err)
+			}
 		}
 	}
 }
