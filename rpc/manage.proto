@@ -34,6 +34,7 @@ message HeartBeatsRequest {
   int32 cpu_usage_percent = 3;
   int32 task_num = 4;
   models.FileInfo file_info_list = 5; // set when need to update FileInfo
+  consts.NodeState state = 6;
 }
 
 message HeartBeatsResponse {}
