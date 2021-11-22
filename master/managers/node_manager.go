@@ -9,6 +9,8 @@ import (
 
 	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
+	"github.com/CyDrive/envs"
+	remote_env "github.com/CyDrive/master/envs"
 	"github.com/CyDrive/network"
 	"github.com/CyDrive/rpc"
 	"github.com/CyDrive/types"
@@ -53,24 +55,33 @@ const (
 )
 
 type NodeManager struct {
+	env     envs.Env
 	nodeMap *sync.Map // map: nodeId -> *Node
 	fileMap *sync.Map // map: filePath -> []*Node
 
 	fileTransferor *network.FileTransferor
 	nodeNum        int32
 	runningNodeNum int32
+	replicationNum int32
 }
 
-func NewNodeManager(fileTransferor *network.FileTransferor) *NodeManager {
+func NewNodeManager(fileTransferor *network.FileTransferor, replicationNum int32) *NodeManager {
 	nodeManager := NodeManager{
 		nodeMap:        &sync.Map{},
 		fileMap:        &sync.Map{},
 		fileTransferor: fileTransferor,
 		nodeNum:        0,
 		runningNodeNum: 0,
+		replicationNum: replicationNum,
 	}
 
+	go nodeManager.healthMaintenance()
+
 	return &nodeManager
+}
+
+func (nm *NodeManager) SetEnv(env envs.Env) {
+	nm.env = env
 }
 
 func (nm *NodeManager) changeNodeState(node *Node, state consts.NodeState) {
@@ -162,39 +173,82 @@ func (nm *NodeManager) dropNode(id int32) {
 	}
 }
 
-func (nm *NodeManager) NodeHealthMaintenance() {
+func (nm *NodeManager) healthMaintenance() {
 	for {
+		// Remove offline nodes reaching the OfflineTimeout
 		removedNodes := make([]int32, 0, 1)
 		nm.nodeMap.Range(func(key, value interface{}) bool {
 			id := key.(int32)
 			node := value.(*Node)
-			if time.Now().Sub(node.LastHeartBeatTime).Milliseconds() >= HeartBeatTimeout {
+			if time.Since(node.LastHeartBeatTime).Milliseconds() >= HeartBeatTimeout {
 				nm.changeNodeState(node, consts.NodeState_Offline)
 			}
-			if time.Now().Sub(node.LastHeartBeatTime).Seconds() >= OfflineTimeout {
+			if time.Since(node.LastHeartBeatTime).Seconds() >= OfflineTimeout {
 				nm.changeNodeState(node, consts.NodeState_Dropping)
 				removedNodes = append(removedNodes, id)
 			}
 			return true
 		})
+		for _, id := range removedNodes {
+			nm.dropNode(id)
+		}
 
+		// Remove dropped node from fileMap
 		nm.fileMap.Range(func(key, value interface{}) bool {
-			nodesI := value.([]*Node)
+			filePath := key.(string)
+			old := value.([]*Node)
 			nodes := make([]*Node, 0, 1)
-			for _, node := range nodesI {
+			for _, node := range old {
 				if node.State != consts.NodeState_Dropping {
 					nodes = append(nodes, node)
 				}
 			}
 
+			if len(nodes) < int(nm.replicationNum) {
+				assignNodes := nm.PickNodesExcept(int(nm.replicationNum)-len(nodes), nodes)
+				if len(assignNodes) == 0 {
+					log.Warnf("no enough node for file: %s", filePath)
+				} else {
+					for _, assignNode := range assignNodes {
+						go func() {
+							nm.replica(filePath, nodes[0], assignNode)
+							nm.AssignFile(filePath, assignNode)
+						}()
+					}
+				}
+			}
+
 			nm.fileMap.Store(key, nodes)
+
 			return true
 		})
 
-		for _, id := range removedNodes {
-			nm.dropNode(id)
-		}
+		// Replica to make the number of replications satisfied
+		// to keep durability
+
 	}
+}
+
+func (nm *NodeManager) replica(filePath string, src *Node, dest *Node) error {
+	fileInfo, err := nm.env.Stat(filePath)
+	if err != nil {
+		return err
+	}
+
+	file := remote_env.NewRemoteFile(os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0666, fileInfo)
+
+	srcTask := nm.fileTransferor.CreateTask(fileInfo, file, consts.DataTaskType_Upload, 0)
+	nm.fileTransferor.CreateTask(fileInfo, file, consts.DataTaskType_Download, 0)
+
+	cond := sync.NewCond(&sync.Mutex{})
+	srcTask.OnEnd = func() {
+		file.Close()
+		cond.Signal()
+	}
+
+	cond.Wait()
+
+	return nil
 }
 
 func (nm *NodeManager) PrepareReadFile(taskId types.TaskId, filePath string) error {
@@ -270,6 +324,26 @@ func (nm *NodeManager) PickNodes(num int) []*Node {
 	nodes = append(nodes, allNodes[:num]...)
 
 	return nodes
+}
+
+func (nm *NodeManager) PickNodesExcept(num int, exceptNodes []*Node) []*Node {
+	nodes := nm.PickNodes(num)
+	ret := make([]*Node, 0, len(nodes))
+	for _, node := range nodes {
+		shouldAdd := true
+		for _, except := range exceptNodes {
+			if node.Id == except.Id {
+				shouldAdd = false
+				break
+			}
+		}
+
+		if shouldAdd {
+			ret = append(ret, node)
+		}
+	}
+
+	return ret
 }
 
 func (nm *NodeManager) PickNode() *Node {

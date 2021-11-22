@@ -7,7 +7,8 @@ import (
 
 	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
-	"github.com/CyDrive/master/envs"
+	"github.com/CyDrive/envs"
+	remote_env "github.com/CyDrive/master/envs"
 	"github.com/CyDrive/master/managers"
 	"github.com/CyDrive/master/store"
 	"github.com/CyDrive/models"
@@ -84,7 +85,7 @@ func NewMaster(config config.Config) *Master {
 		messageStore   store.MessageStore
 		shareStore     store.ShareStore
 		fileTransferor = network.NewFileTransferor()
-		nodeManager    = managers.NewNodeManager(fileTransferor)
+		nodeManager    = managers.NewNodeManager(fileTransferor, 2)
 	)
 
 	// Set env
@@ -92,8 +93,10 @@ func NewMaster(config config.Config) *Master {
 	case consts.EnvTypeLocal:
 		env = envs.NewLocalEnv()
 	case consts.EnvTypeRemote:
-		env = envs.NewRemoteEnv(nodeManager, fileTransferor)
+		env = remote_env.NewRemoteEnv(nodeManager, fileTransferor)
 	}
+
+	nodeManager.SetEnv(env)
 
 	// Set account store
 	if config.AccountStoreType == consts.AccountStoreTypeMem {
