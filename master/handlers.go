@@ -167,16 +167,18 @@ func ListHandle(c *gin.Context) {
 	absPath = strings.Trim(absPath, "/")
 
 	fileList, err := GetEnv().ReadDir(absPath)
-	for i := range fileList {
-		fileList[i].FilePath = strings.ReplaceAll(fileList[i].FilePath, "\\", "/")
-		fileList[i].FilePath = strings.TrimPrefix(fileList[i].FilePath, utils.GetAccountDataDir(account.Id))
-	}
 	if err != nil {
+		log.Errorf("failed to read dir for path=%s, err=%+v", absPath, err)
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_IoError,
 			Message:    err.Error(),
 		})
 		return
+	}
+
+	for i := range fileList {
+		fileList[i].FilePath = strings.ReplaceAll(fileList[i].FilePath, "\\", "/")
+		fileList[i].FilePath = strings.TrimPrefix(fileList[i].FilePath, utils.GetAccountDataDir(account.Id))
 	}
 
 	fileListJson, err := utils.GetJsonEncoder().Marshal(&models.FileInfoList{
@@ -368,11 +370,12 @@ func DeleteHandle(c *gin.Context) {
 	userI, _ := c.Get("account")
 	account := userI.(*models.Account)
 
-	filePath := c.Param("path")
+	filePath := strings.Trim(c.Param("path"), "/")
 	filePath = utils.AccountFilePath(account, filePath)
 
 	fileInfo, err := GetEnv().Stat(filePath)
 	if err != nil {
+		log.Errorf("failed to get fileInfo for path=%s, err=%+v", filePath, err)
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_IoError,
 			Message:    err.Error(),
@@ -382,6 +385,7 @@ func DeleteHandle(c *gin.Context) {
 
 	err = GetEnv().RemoveAll(filePath)
 	if err != nil {
+		log.Errorf("failed to remove file/folder for path=%s, err=%+v", filePath, err)
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
 			Message:    err.Error(),

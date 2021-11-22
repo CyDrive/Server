@@ -38,7 +38,7 @@ func NewStorageNode(config *config.Config) *StorageNode {
 		panic(err)
 	}
 
-	logfile, err := os.Create(fmt.Sprintf("node %v.log", utils.GetDateTimeNow()))
+	logfile, err := os.Create(fmt.Sprintf("node%v.log", utils.GetDateTimeNow()))
 	if err != nil {
 		panic(err)
 	}

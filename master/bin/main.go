@@ -17,7 +17,7 @@ var (
 )
 
 func init() {
-	logFile, err := os.OpenFile(fmt.Sprintf("master %v.log", utils.GetDateTimeNow()), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
+	logFile, err := os.OpenFile(fmt.Sprintf("master%v.log", utils.GetDateTimeNow()), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
 	if err != nil {
 		panic(err)
 	}

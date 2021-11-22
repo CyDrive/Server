@@ -99,7 +99,7 @@ func (env *LocalEnv) SetFileInfo(name string, fileInfo *models.FileInfo) error {
 type RemoteEnv struct {
 	nodeManager    *managers.NodeManager
 	fileTransferor *network.FileTransferor
-	metaMap        *sync.Map // map: filePath -> *FileInfo or []string
+	metaMap        *sync.Map // map: filePath -> *FileInfo or *[]string
 }
 
 func NewRemoteEnv(nodeManager *managers.NodeManager, fileTransferor *network.FileTransferor) *RemoteEnv {
@@ -158,7 +158,8 @@ func (env *RemoteEnv) OpenFile(name string, flag int, perm os.FileMode) (types.F
 func (env *RemoteEnv) RemoveAll(path string) error {
 	env.nodeManager.NotifyDeleteFile(path)
 	env.RemoveAllMeta(path)
-	return nil
+
+	return env.removeEntryFromFolder(path)
 }
 
 func (env *RemoteEnv) RemoveAllMeta(path string) error {
@@ -174,6 +175,28 @@ func (env *RemoteEnv) RemoveAllMeta(path string) error {
 	}
 	for _, entry := range entries {
 		env.RemoveAllMeta(entry)
+	}
+
+	return nil
+}
+
+func (env *RemoteEnv) removeEntryFromFolder(path string) error {
+	dir := filepath.Dir(path)
+	entriesI, ok := env.metaMap.Load(dir)
+	if !ok {
+		return os.ErrNotExist
+	}
+
+	entries, ok := entriesI.(*[]string)
+	if !ok {
+		return os.ErrInvalid
+	}
+
+	for i, entry := range *entries {
+		if entry == path {
+			*entries = append((*entries)[:i], (*entries)[i+1:]...)
+			break
+		}
 	}
 
 	return nil
@@ -247,7 +270,9 @@ func (env *RemoteEnv) SetFileInfo(name string, fileInfo *models.FileInfo) error 
 	_, ok := env.metaMap.Load(name)
 	isNewEntry := !ok
 
-	if !fileInfo.IsDir {
+	if fileInfo.IsDir {
+		env.metaMap.Store(name, &[]string{})
+	} else {
 		env.metaMap.Store(name, fileInfo)
 	}
 
