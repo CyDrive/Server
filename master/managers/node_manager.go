@@ -10,7 +10,6 @@ import (
 	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
 	"github.com/CyDrive/envs"
-	remote_env "github.com/CyDrive/master/envs"
 	"github.com/CyDrive/network"
 	"github.com/CyDrive/rpc"
 	"github.com/CyDrive/types"
@@ -235,7 +234,7 @@ func (nm *NodeManager) replica(filePath string, src *Node, dest *Node) error {
 		return err
 	}
 
-	file := remote_env.NewRemoteFile(os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0666, fileInfo)
+	file := envs.NewPipeFile(fileInfo)
 
 	srcTask := nm.fileTransferor.CreateTask(fileInfo, file, consts.DataTaskType_Upload, 0)
 	nm.fileTransferor.CreateTask(fileInfo, file, consts.DataTaskType_Download, 0)
@@ -274,8 +273,9 @@ func (nm *NodeManager) PrepareWriteFile(taskId types.TaskId, filePath string) er
 
 	// todo: load-balance
 	// now we just pick the first node
-	node := nodes[0]
-	node.NotifyChan <- utils.PackTransferFileNotification(taskId, config.IpAddr, filePath, consts.DataTaskType_Download)
+	for _, node := range nodes {
+		node.NotifyChan <- utils.PackTransferFileNotification(taskId, config.IpAddr, filePath, consts.DataTaskType_Download)
+	}
 
 	return nil
 }
