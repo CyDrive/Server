@@ -44,6 +44,7 @@ func NewStorageNode(config *config.Config) *StorageNode {
 	}
 
 	log.SetOutput(logfile)
+	log.SetLevel(log.ErrorLevel)
 
 	node := StorageNode{
 		Config: config,

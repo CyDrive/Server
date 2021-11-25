@@ -50,7 +50,7 @@ func NewNode(cap, usage int64, addr string) *Node {
 
 const (
 	HeartBeatTimeout = 1000 // in ms
-	OfflineTimeout   = 3000 // in second
+	OfflineTimeout   = 300  // in second
 )
 
 type NodeManager struct {
@@ -198,6 +198,7 @@ func (nm *NodeManager) healthMaintenance() {
 		nm.fileMap.Range(func(key, value interface{}) bool {
 			filePath := key.(string)
 			old := value.([]*Node)
+
 			nodes := make([]*Node, 0, 1)
 			for _, node := range old {
 				if node.State != consts.NodeState_Dropping {
