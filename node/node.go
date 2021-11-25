@@ -50,7 +50,7 @@ func NewStorageNode(config *config.Config) *StorageNode {
 		Usage:  usage,
 
 		State:          consts.NodeState_Starting,
-		heartBeatTimer: time.NewTimer(250 * time.Millisecond),
+		heartBeatTimer: time.NewTimer(500 * time.Millisecond),
 	}
 
 	return &node

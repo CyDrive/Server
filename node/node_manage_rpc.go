@@ -66,6 +66,7 @@ func (node *StorageNode) ProcessNotifications() {
 		notify, err := stream.Recv()
 		if err != nil {
 			log.Errorf("failed to recv notification, err=%v", err)
+			continue
 		}
 
 		log.Infof("recv delete file notification: %+v", notify.Notify)

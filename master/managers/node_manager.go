@@ -49,14 +49,15 @@ func NewNode(cap, usage int64, addr string) *Node {
 }
 
 const (
-	HeartBeatTimeout = 500  // in ms
+	HeartBeatTimeout = 1000 // in ms
 	OfflineTimeout   = 3000 // in second
 )
 
 type NodeManager struct {
-	env     envs.Env
-	nodeMap *sync.Map // map: nodeId -> *Node
-	fileMap *sync.Map // map: filePath -> []*Node
+	env            envs.Env
+	nodeMap        *sync.Map // map: nodeId -> *Node
+	fileMap        *sync.Map // map: filePath -> []*Node
+	replicatingMap *sync.Map // map: filePath -> []*Node
 
 	fileTransferor *network.FileTransferor
 	nodeNum        int32
@@ -68,6 +69,8 @@ func NewNodeManager(fileTransferor *network.FileTransferor, replicationNum int32
 	nodeManager := NodeManager{
 		nodeMap:        &sync.Map{},
 		fileMap:        &sync.Map{},
+		replicatingMap: &sync.Map{},
+
 		fileTransferor: fileTransferor,
 		nodeNum:        0,
 		runningNodeNum: 0,
@@ -204,15 +207,26 @@ func (nm *NodeManager) healthMaintenance() {
 			}
 
 			if len(nodes) < int(nm.replicationNum) {
-				assignNodes := nm.PickNodesExcept(int(nm.replicationNum)-len(nodes), nodes)
+				assignNodes := filterNodesByState(
+					nm.PickNodesExcept(int(nm.replicationNum)-len(nodes), nodes),
+					consts.NodeState_Running)
+
+				assignNodes = nm.filterNodesByReplicatingMap(filePath, assignNodes)
+
 				if len(assignNodes) == 0 {
-					log.Warnf("no enough node for file: %s", filePath)
+					log.Warnf("no enough node for file: %s, nodes_num=%d replication_num=%d", filePath, len(nodes), nm.replicationNum)
 				} else {
-					for _, assignNode := range assignNodes {
-						go func() {
-							nm.replica(filePath, nodes[0], assignNode)
-							nm.AssignFile(filePath, assignNode)
-						}()
+					srcNodes := filterNodesByState(nodes, consts.NodeState_Running)
+					if len(srcNodes) == 0 {
+						log.Warnf("All nodes are still starting, replica later")
+					} else {
+						for _, assignNode := range assignNodes {
+							nm.replicatingMap.Store(filePath, assignNode)
+							go func(src, dest *Node) {
+								nm.replica(filePath, src, dest)
+								nm.AssignFile(filePath, dest)
+							}(srcNodes[0], assignNode)
+						}
 					}
 				}
 			}
@@ -222,9 +236,7 @@ func (nm *NodeManager) healthMaintenance() {
 			return true
 		})
 
-		// Replica to make the number of replications satisfied
-		// to keep durability
-
+		time.Sleep(HeartBeatTimeout * time.Millisecond)
 	}
 }
 
@@ -237,15 +249,19 @@ func (nm *NodeManager) replica(filePath string, src *Node, dest *Node) error {
 	file := envs.NewPipeFile(fileInfo)
 
 	srcTask := nm.fileTransferor.CreateTask(fileInfo, file, consts.DataTaskType_Upload, 0)
-	nm.fileTransferor.CreateTask(fileInfo, file, consts.DataTaskType_Download, 0)
+	destTask := nm.fileTransferor.CreateTask(fileInfo, file, consts.DataTaskType_Download, 0)
 
-	cond := sync.NewCond(&sync.Mutex{})
+	src.NotifyChan <- utils.PackTransferFileNotification(srcTask.Id, config.IpAddr, filePath, consts.DataTaskType_Upload)
+	dest.NotifyChan <- utils.PackTransferFileNotification(destTask.Id, config.IpAddr, filePath, consts.DataTaskType_Download)
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	srcTask.OnEnd = func() {
+		defer wg.Done()
 		file.Close()
-		cond.Signal()
 	}
 
-	cond.Wait()
+	wg.Wait()
 
 	return nil
 }
@@ -353,4 +369,41 @@ func (nm *NodeManager) PickNode() *Node {
 	}
 
 	return nodes[0]
+}
+
+func (nm *NodeManager) filterNodesByReplicatingMap(filePath string, nodes []*Node) []*Node {
+	ret := make([]*Node, 0, len(nodes))
+	replicatingNodesI, ok := nm.replicatingMap.Load(filePath)
+	replicatingNodes := []*Node{}
+	if ok {
+		replicatingNodes = replicatingNodesI.([]*Node)
+	}
+
+	for _, node := range nodes {
+		if !isInSlice(node, replicatingNodes) {
+			ret = append(ret, node)
+		}
+	}
+
+	return ret
+}
+
+func isInSlice(checkNode *Node, nodes []*Node) bool {
+	for _, node := range nodes {
+		if checkNode == node {
+			return true
+		}
+	}
+	return false
+}
+
+func filterNodesByState(nodes []*Node, state consts.NodeState) []*Node {
+	ret := make([]*Node, 0, len(nodes))
+	for _, node := range nodes {
+		if node.State == state {
+			ret = append(ret, node)
+		}
+	}
+
+	return ret
 }
