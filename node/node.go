@@ -44,13 +44,14 @@ func NewStorageNode(config *config.Config) *StorageNode {
 	}
 
 	log.SetOutput(logfile)
+	log.SetLevel(log.ErrorLevel)
 
 	node := StorageNode{
 		Config: config,
 		Usage:  usage,
 
 		State:          consts.NodeState_Starting,
-		heartBeatTimer: time.NewTimer(250 * time.Millisecond),
+		heartBeatTimer: time.NewTimer(500 * time.Millisecond),
 	}
 
 	return &node

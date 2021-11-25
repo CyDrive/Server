@@ -92,7 +92,9 @@ func (s *NodeManageServer) ReportFileInfos(ctx context.Context, req *rpc.ReportF
 		if node == nil {
 			panic("forget to add node into node manager")
 		}
-		GetNodeManager().AssignFile(fileInfo.FilePath, node)
+		if !fileInfo.IsDir {
+			GetNodeManager().AssignFile(fileInfo.FilePath, node)
+		}
 	}
 
 	resp := &rpc.ReportFileInfosResponse{}

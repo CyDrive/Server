@@ -23,6 +23,7 @@ func init() {
 	}
 	log.SetOutput(logFile)
 	log.SetReportCaller(true)
+	log.SetLevel(log.ErrorLevel)
 
 	configBytes, err := ioutil.ReadFile("master-config.yaml")
 	if err != nil {

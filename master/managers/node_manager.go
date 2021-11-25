@@ -9,6 +9,7 @@ import (
 
 	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
+	"github.com/CyDrive/envs"
 	"github.com/CyDrive/network"
 	"github.com/CyDrive/rpc"
 	"github.com/CyDrive/types"
@@ -48,29 +49,41 @@ func NewNode(cap, usage int64, addr string) *Node {
 }
 
 const (
-	HeartBeatTimeout = 500  // in ms
-	OfflineTimeout   = 3000 // in second
+	HeartBeatTimeout = 1000 // in ms
+	OfflineTimeout   = 300  // in second
 )
 
 type NodeManager struct {
-	nodeMap *sync.Map // map: nodeId -> *Node
-	fileMap *sync.Map // map: filePath -> []*Node
+	env            envs.Env
+	nodeMap        *sync.Map // map: nodeId -> *Node
+	fileMap        *sync.Map // map: filePath -> []*Node
+	replicatingMap *sync.Map // map: filePath -> []*Node
 
 	fileTransferor *network.FileTransferor
 	nodeNum        int32
 	runningNodeNum int32
+	replicationNum int32
 }
 
-func NewNodeManager(fileTransferor *network.FileTransferor) *NodeManager {
+func NewNodeManager(fileTransferor *network.FileTransferor, replicationNum int32) *NodeManager {
 	nodeManager := NodeManager{
 		nodeMap:        &sync.Map{},
 		fileMap:        &sync.Map{},
+		replicatingMap: &sync.Map{},
+
 		fileTransferor: fileTransferor,
 		nodeNum:        0,
 		runningNodeNum: 0,
+		replicationNum: replicationNum,
 	}
 
+	go nodeManager.healthMaintenance()
+
 	return &nodeManager
+}
+
+func (nm *NodeManager) SetEnv(env envs.Env) {
+	nm.env = env
 }
 
 func (nm *NodeManager) changeNodeState(node *Node, state consts.NodeState) {
@@ -127,21 +140,20 @@ func (nm *NodeManager) GetNodesByFilePath(filePath string) []*Node {
 
 func (nm *NodeManager) getNodesByFilePath(filePath string) []*Node {
 	nodesI, ok := nm.fileMap.Load(filePath)
-	var nodes []*Node
+	ret := make([]*Node, 0, 2)
 	if !ok {
-		nodes = []*Node{}
-		nm.fileMap.Store(filePath, nodes)
+		ret = []*Node{}
 	} else {
-		nodes := make([]*Node, 0, 1)
-		for _, node := range nodesI.([]*Node) {
+		nodes := nodesI.([]*Node)
+		for _, node := range nodes {
 			if node.State != consts.NodeState_Dropping {
-				nodes = append(nodes, node)
+				ret = append(ret, node)
 			}
 		}
-		nm.fileMap.Store(filePath, nodes)
 	}
 
-	return nodes
+	nm.fileMap.Store(filePath, ret)
+	return ret
 }
 
 func (nm *NodeManager) AssignFile(filePath string, node *Node) []*Node {
@@ -162,39 +174,109 @@ func (nm *NodeManager) dropNode(id int32) {
 	}
 }
 
-func (nm *NodeManager) NodeHealthMaintenance() {
+func (nm *NodeManager) healthMaintenance() {
 	for {
+		// Remove offline nodes reaching the OfflineTimeout
 		removedNodes := make([]int32, 0, 1)
 		nm.nodeMap.Range(func(key, value interface{}) bool {
 			id := key.(int32)
 			node := value.(*Node)
-			if time.Now().Sub(node.LastHeartBeatTime).Milliseconds() >= HeartBeatTimeout {
+			if time.Since(node.LastHeartBeatTime).Milliseconds() >= HeartBeatTimeout {
 				nm.changeNodeState(node, consts.NodeState_Offline)
 			}
-			if time.Now().Sub(node.LastHeartBeatTime).Seconds() >= OfflineTimeout {
+			if time.Since(node.LastHeartBeatTime).Seconds() >= OfflineTimeout {
 				nm.changeNodeState(node, consts.NodeState_Dropping)
 				removedNodes = append(removedNodes, id)
 			}
 			return true
 		})
+		for _, id := range removedNodes {
+			nm.dropNode(id)
+		}
 
+		// Remove dropped node from fileMap
 		nm.fileMap.Range(func(key, value interface{}) bool {
-			nodesI := value.([]*Node)
+			filePath := key.(string)
+			old := value.([]*Node)
+
 			nodes := make([]*Node, 0, 1)
-			for _, node := range nodesI {
+			for _, node := range old {
 				if node.State != consts.NodeState_Dropping {
 					nodes = append(nodes, node)
 				}
 			}
 
+			// Need to replica
+			if len(nodes) < int(nm.replicationNum) {
+				assignNodes := filterNodesByState(
+					nm.PickNodesExcept(int(nm.replicationNum)-len(nodes), nodes),
+					consts.NodeState_Running)
+
+				assignNodes = nm.filterNodesByReplicatingMap(filePath, assignNodes)
+
+				srcNodes := filterNodesByState(nodes, consts.NodeState_Running)
+
+				if len(assignNodes) == 0 {
+					log.Warnf("no enough node for file: %s, nodes_num=%d replication_num=%d", filePath, len(nodes), nm.replicationNum)
+				} else if len(srcNodes) == 0 {
+					log.Infof("All nodes are still starting, replica later")
+				} else {
+					for _, assignNode := range assignNodes {
+						nm.addReplicas(filePath, assignNode)
+						go func(filePath string, src, dest *Node) {
+							nm.replica(filePath, src, dest)
+							nm.AssignFile(filePath, dest)
+						}(filePath, srcNodes[0], assignNode)
+					}
+				}
+			}
+
 			nm.fileMap.Store(key, nodes)
+
 			return true
 		})
 
-		for _, id := range removedNodes {
-			nm.dropNode(id)
-		}
+		time.Sleep(HeartBeatTimeout * time.Millisecond)
 	}
+}
+
+func (nm *NodeManager) replica(filePath string, src *Node, dest *Node) error {
+	log.Infof("replica file=%s from src=%+v to dest=%+v", filePath, src, dest)
+
+	fileInfo, err := nm.env.Stat(filePath)
+	if err != nil {
+		return err
+	}
+
+	file := envs.NewPipeFile(fileInfo)
+
+	srcTask := nm.fileTransferor.CreateTask(fileInfo, file, consts.DataTaskType_Upload, 0)
+	destTask := nm.fileTransferor.CreateTask(fileInfo, file, consts.DataTaskType_Download, 0)
+
+	src.NotifyChan <- utils.PackTransferFileNotification(srcTask.Id, config.IpAddr, filePath, consts.DataTaskType_Upload)
+	dest.NotifyChan <- utils.PackTransferFileNotification(destTask.Id, config.IpAddr, filePath, consts.DataTaskType_Download)
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	srcTask.OnEnd = func() {
+		defer wg.Done()
+		file.Close()
+	}
+
+	wg.Wait()
+
+	return nil
+}
+
+func (nm *NodeManager) addReplicas(filePath string, node *Node) {
+	nodes := make([]*Node, 0, 2)
+	nodesI, ok := nm.replicatingMap.Load(filePath)
+	if ok {
+		nodes = nodesI.([]*Node)
+	}
+	nodes = append(nodes, node)
+
+	nm.replicatingMap.Store(filePath, nodes)
 }
 
 func (nm *NodeManager) PrepareReadFile(taskId types.TaskId, filePath string) error {
@@ -220,8 +302,9 @@ func (nm *NodeManager) PrepareWriteFile(taskId types.TaskId, filePath string) er
 
 	// todo: load-balance
 	// now we just pick the first node
-	node := nodes[0]
-	node.NotifyChan <- utils.PackTransferFileNotification(taskId, config.IpAddr, filePath, consts.DataTaskType_Download)
+	for _, node := range nodes {
+		node.NotifyChan <- utils.PackTransferFileNotification(taskId, config.IpAddr, filePath, consts.DataTaskType_Download)
+	}
 
 	return nil
 }
@@ -272,6 +355,26 @@ func (nm *NodeManager) PickNodes(num int) []*Node {
 	return nodes
 }
 
+func (nm *NodeManager) PickNodesExcept(num int, exceptNodes []*Node) []*Node {
+	nodes := nm.PickNodes(num)
+	ret := make([]*Node, 0, len(nodes))
+	for _, node := range nodes {
+		shouldAdd := true
+		for _, except := range exceptNodes {
+			if node.Id == except.Id {
+				shouldAdd = false
+				break
+			}
+		}
+
+		if shouldAdd {
+			ret = append(ret, node)
+		}
+	}
+
+	return ret
+}
+
 func (nm *NodeManager) PickNode() *Node {
 	nodes := nm.PickNodes(1)
 	if len(nodes) == 0 {
@@ -279,4 +382,41 @@ func (nm *NodeManager) PickNode() *Node {
 	}
 
 	return nodes[0]
+}
+
+func (nm *NodeManager) filterNodesByReplicatingMap(filePath string, nodes []*Node) []*Node {
+	ret := make([]*Node, 0, len(nodes))
+	replicatingNodesI, ok := nm.replicatingMap.Load(filePath)
+	replicatingNodes := []*Node{}
+	if ok {
+		replicatingNodes = replicatingNodesI.([]*Node)
+	}
+
+	for _, node := range nodes {
+		if !isInSlice(node, replicatingNodes) {
+			ret = append(ret, node)
+		}
+	}
+
+	return ret
+}
+
+func isInSlice(checkNode *Node, nodes []*Node) bool {
+	for _, node := range nodes {
+		if checkNode == node {
+			return true
+		}
+	}
+	return false
+}
+
+func filterNodesByState(nodes []*Node, state consts.NodeState) []*Node {
+	ret := make([]*Node, 0, len(nodes))
+	for _, node := range nodes {
+		if node.State == state {
+			ret = append(ret, node)
+		}
+	}
+
+	return ret
 }
