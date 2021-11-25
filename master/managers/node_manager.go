@@ -140,21 +140,20 @@ func (nm *NodeManager) GetNodesByFilePath(filePath string) []*Node {
 
 func (nm *NodeManager) getNodesByFilePath(filePath string) []*Node {
 	nodesI, ok := nm.fileMap.Load(filePath)
-	var nodes []*Node
+	ret := make([]*Node, 0, 2)
 	if !ok {
-		nodes = []*Node{}
-		nm.fileMap.Store(filePath, nodes)
+		ret = []*Node{}
 	} else {
-		nodes := make([]*Node, 0, 1)
-		for _, node := range nodesI.([]*Node) {
+		nodes := nodesI.([]*Node)
+		for _, node := range nodes {
 			if node.State != consts.NodeState_Dropping {
-				nodes = append(nodes, node)
+				ret = append(ret, node)
 			}
 		}
-		nm.fileMap.Store(filePath, nodes)
 	}
 
-	return nodes
+	nm.fileMap.Store(filePath, ret)
+	return ret
 }
 
 func (nm *NodeManager) AssignFile(filePath string, node *Node) []*Node {
@@ -206,6 +205,7 @@ func (nm *NodeManager) healthMaintenance() {
 				}
 			}
 
+			// Need to replica
 			if len(nodes) < int(nm.replicationNum) {
 				assignNodes := filterNodesByState(
 					nm.PickNodesExcept(int(nm.replicationNum)-len(nodes), nodes),
@@ -213,20 +213,19 @@ func (nm *NodeManager) healthMaintenance() {
 
 				assignNodes = nm.filterNodesByReplicatingMap(filePath, assignNodes)
 
+				srcNodes := filterNodesByState(nodes, consts.NodeState_Running)
+
 				if len(assignNodes) == 0 {
 					log.Warnf("no enough node for file: %s, nodes_num=%d replication_num=%d", filePath, len(nodes), nm.replicationNum)
+				} else if len(srcNodes) == 0 {
+					log.Infof("All nodes are still starting, replica later")
 				} else {
-					srcNodes := filterNodesByState(nodes, consts.NodeState_Running)
-					if len(srcNodes) == 0 {
-						log.Warnf("All nodes are still starting, replica later")
-					} else {
-						for _, assignNode := range assignNodes {
-							nm.replicatingMap.Store(filePath, assignNode)
-							go func(src, dest *Node) {
-								nm.replica(filePath, src, dest)
-								nm.AssignFile(filePath, dest)
-							}(srcNodes[0], assignNode)
-						}
+					for _, assignNode := range assignNodes {
+						nm.addReplicas(filePath, assignNode)
+						go func(filePath string, src, dest *Node) {
+							nm.replica(filePath, src, dest)
+							nm.AssignFile(filePath, dest)
+						}(filePath, srcNodes[0], assignNode)
 					}
 				}
 			}
@@ -241,6 +240,8 @@ func (nm *NodeManager) healthMaintenance() {
 }
 
 func (nm *NodeManager) replica(filePath string, src *Node, dest *Node) error {
+	log.Infof("replica file=%s from src=%+v to dest=%+v", filePath, src, dest)
+
 	fileInfo, err := nm.env.Stat(filePath)
 	if err != nil {
 		return err
@@ -264,6 +265,17 @@ func (nm *NodeManager) replica(filePath string, src *Node, dest *Node) error {
 	wg.Wait()
 
 	return nil
+}
+
+func (nm *NodeManager) addReplicas(filePath string, node *Node) {
+	nodes := make([]*Node, 0, 2)
+	nodesI, ok := nm.replicatingMap.Load(filePath)
+	if ok {
+		nodes = nodesI.([]*Node)
+	}
+	nodes = append(nodes, node)
+
+	nm.replicatingMap.Store(filePath, nodes)
 }
 
 func (nm *NodeManager) PrepareReadFile(taskId types.TaskId, filePath string) error {
