@@ -43,7 +43,7 @@ func (node *StorageNode) HeartBeat() {
 		State:           node.State,
 	}
 
-	ctx, _ := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	_, err := node.manageClient.HeartBeats(ctx, req)
 	if err != nil {
 		log.Errorf("heartbeat failed, err=%+v", err)
