@@ -26,10 +26,9 @@ type StorageNode struct {
 	TaskNum int32
 	State   consts.NodeState
 
-	heartBeatTimer   *time.Timer
-	conn             *grpc.ClientConn
-	manageClient     rpc.ManageClient
-	fileStreamClient rpc.FileStreamClient
+	heartBeatTimer *time.Timer
+	conn           *grpc.ClientConn
+	manageClient   rpc.ManageClient
 }
 
 func NewStorageNode(config *config.Config) *StorageNode {
@@ -67,7 +66,6 @@ func (node *StorageNode) Start() {
 	}
 
 	node.manageClient = rpc.NewManageClient(node.conn)
-	node.fileStreamClient = rpc.NewFileStreamClient(node.conn)
 
 	log.Infof("connections setups...")
 	// join cluster
