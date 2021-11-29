@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/CyDrive/consts"
+	. "github.com/CyDrive/envs"
 	"github.com/CyDrive/master/managers"
 	"github.com/CyDrive/models"
 	"github.com/CyDrive/network"
 	"github.com/CyDrive/types"
-	. "github.com/CyDrive/envs"
 )
 
 var (
@@ -195,7 +195,7 @@ func (env *RemoteEnv) SetFileInfo(name string, fileInfo *models.FileInfo) error 
 	isNewEntry := !ok
 
 	if fileInfo.IsDir {
-		env.metaMap.Store(name, &[]string{})
+		env.metaMap.LoadOrStore(name, &[]string{})
 	} else {
 		env.metaMap.Store(name, fileInfo)
 	}
@@ -228,4 +228,25 @@ func (env *RemoteEnv) getFileInfo(filePath string) (*models.FileInfo, bool) {
 
 	fileInfo, ok := fileInfoI.(*models.FileInfo)
 	return fileInfo, ok
+}
+
+func (env *RemoteEnv) addToDir(filePath string) {
+	_, ok := env.metaMap.Load(filePath)
+
+	// The file is already in the dirs
+	if ok {
+		return
+	}
+
+	dir := filepath.Dir(filePath)
+
+	entriesI, ok := env.metaMap.Load(dir)
+	if !ok {
+		entriesI = &[]string{}
+	}
+	entries := entriesI.(*[]string)
+
+	*entries = append(*entries, filePath)
+
+	env.metaMap.Store(dir, entries)
 }
