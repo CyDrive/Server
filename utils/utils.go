@@ -100,8 +100,8 @@ func GetDateTimeNow() string {
 	return time.Now().Format(consts.TimeFormat)
 }
 
-func NewFileInfo(fileInfo os.FileInfo, path string) *models.FileInfo {
-	return &models.FileInfo{
+func NewFileInfo(fileInfo os.FileInfo, path string) models.FileInfo {
+	return models.FileInfo{
 		ModifyTime:   timestamppb.New(fileInfo.ModTime()),
 		FilePath:     path,
 		Size:         fileInfo.Size(),

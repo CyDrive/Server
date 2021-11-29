@@ -248,10 +248,10 @@ func (nm *NodeManager) replica(filePath string, src *Node, dest *Node) error {
 		return err
 	}
 
-	file := envs.NewPipeFile(fileInfo)
+	file := envs.NewPipeFile(&fileInfo)
 
-	srcTask := nm.fileTransferor.CreateTask(fileInfo, file, consts.DataTaskType_Upload, 0)
-	destTask := nm.fileTransferor.CreateTask(fileInfo, file, consts.DataTaskType_Download, 0)
+	srcTask := nm.fileTransferor.CreateTask(&fileInfo, file, consts.DataTaskType_Upload, 0)
+	destTask := nm.fileTransferor.CreateTask(&fileInfo, file, consts.DataTaskType_Download, 0)
 
 	src.NotifyChan <- utils.PackTransferFileNotification(srcTask.Id, config.IpAddr, filePath, consts.DataTaskType_Upload)
 	dest.NotifyChan <- utils.PackTransferFileNotification(destTask.Id, config.IpAddr, filePath, consts.DataTaskType_Download)

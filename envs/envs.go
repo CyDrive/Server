@@ -16,10 +16,10 @@ type Env interface {
 	OpenFile(name string, flag int, perm os.FileMode) (types.FileHandle, error) // for write
 	RemoveAll(path string) error
 	MkdirAll(path string, perm os.FileMode) error
-	ReadDir(dirname string) ([]*models.FileInfo, error)
+	ReadDir(dirname string) ([]models.FileInfo, error)
 	Chtimes(name string, atime time.Time, mtime time.Time) error
-	Stat(name string) (*models.FileInfo, error)
-	SetFileInfo(name string, fileInfo *models.FileInfo) error
+	Stat(name string) (models.FileInfo, error)
+	SetFileInfo(name string, fileInfo models.FileInfo) error
 }
 
 type LocalEnv struct{}
@@ -54,13 +54,13 @@ func (env *LocalEnv) MkdirAll(path string, perm os.FileMode) error {
 	return os.MkdirAll(path, perm)
 }
 
-func (env *LocalEnv) ReadDir(dirname string) ([]*models.FileInfo, error) {
+func (env *LocalEnv) ReadDir(dirname string) ([]models.FileInfo, error) {
 	innerList, err := ioutil.ReadDir(dirname)
 	if err != nil {
 		return nil, err
 	}
 
-	fileInfoList := []*models.FileInfo{}
+	fileInfoList := []models.FileInfo{}
 	for _, info := range innerList {
 		fileInfoList = append(fileInfoList,
 			utils.NewFileInfo(info, filepath.Join(dirname, info.Name())))
@@ -73,15 +73,15 @@ func (env *LocalEnv) Chtimes(name string, atime time.Time, mtime time.Time) erro
 	return os.Chtimes(name, atime, mtime)
 }
 
-func (env *LocalEnv) Stat(name string) (*models.FileInfo, error) {
+func (env *LocalEnv) Stat(name string) (models.FileInfo, error) {
 	inner, err := os.Stat(name)
 	if err != nil {
-		return &models.FileInfo{}, err
+		return models.FileInfo{}, err
 	}
 
 	return utils.NewFileInfo(inner, name), nil
 }
 
-func (env *LocalEnv) SetFileInfo(name string, fileInfo *models.FileInfo) error {
+func (env *LocalEnv) SetFileInfo(name string, fileInfo models.FileInfo) error {
 	return nil
 }

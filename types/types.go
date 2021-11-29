@@ -16,7 +16,7 @@ type ReadIndex struct {
 	Count    int64
 }
 type FileHandle interface {
-	Stat() (*models.FileInfo, error)
+	Stat() (models.FileInfo, error)
 	Truncate(size int64) error
 	Chmod(mode os.FileMode) error
 	io.Writer

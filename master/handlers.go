@@ -2,6 +2,7 @@ package master
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/mail"
@@ -11,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CyDrive/config"
 	"github.com/CyDrive/consts"
 	"github.com/CyDrive/master/managers"
 	"github.com/CyDrive/master/store"
@@ -21,6 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Account services
@@ -181,9 +182,14 @@ func ListHandle(c *gin.Context) {
 		fileList[i].FilePath = strings.TrimPrefix(fileList[i].FilePath, utils.GetAccountDataDir(account.Id))
 	}
 
+	fileInfoList := make([]*models.FileInfo, 0, len(fileList))
+	for i := range fileList {
+		fileInfoList = append(fileInfoList, &fileList[i])
+	}
 	fileListJson, err := utils.GetJsonEncoder().Marshal(&models.FileInfoList{
-		FileInfoList: fileList,
+		FileInfoList: fileInfoList,
 	})
+
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_InternalError,
@@ -205,7 +211,7 @@ func DownloadHandle(c *gin.Context) {
 	// relative path
 	filePath := strings.Trim(c.Param("path"), "/")
 
-	// absolute filepath
+	// full filepath
 	filePath = utils.AccountFilePath(account, filePath)
 	fileInfo, err := GetEnv().Stat(filePath)
 	log.Infof("read file info for filePath=%s, fileInfo=%+v", filePath, fileInfo)
@@ -238,32 +244,15 @@ func DownloadHandle(c *gin.Context) {
 		return
 	}
 
-	uFileInfo := *fileInfo
-	uFileInfo.FilePath, _ = filepath.Rel(utils.GetAccountDataDir(account.Id), uFileInfo.FilePath)
-	uFileInfo.FilePath = strings.ReplaceAll(uFileInfo.FilePath, "\\", "/")
+	file.Seek(begin, io.SeekStart)
+
+	fileInfo.FilePath, _ = filepath.Rel(utils.GetAccountDataDir(account.Id), fileInfo.FilePath)
+	fileInfo.FilePath = strings.ReplaceAll(fileInfo.FilePath, "\\", "/")
 
 	log.Infof("clientIp=%+v", c.ClientIP())
-	task := GetFileTransferor().CreateTask(&uFileInfo, file, consts.DataTaskType_Download, begin)
-	resp := models.DownloadResponse{
-		NodeAddr: config.IpAddr + consts.FileTransferorListenPortStr,
-		TaskId:   task.Id,
-		FileInfo: &uFileInfo,
-	}
-	log.Infof("downloadResp=%+v", resp)
-	respBytes, err := utils.GetJsonEncoder().Marshal(&resp)
-	if err != nil {
-		c.JSON(http.StatusOK, models.Response{
-			StatusCode: consts.StatusCode_InternalError,
-			Message:    err.Error(),
-		})
-		return
-	}
 
-	c.JSON(http.StatusOK, models.Response{
-		StatusCode: consts.StatusCode_Ok,
-		Message:    "download task created",
-		Data:       string(respBytes),
-	})
+	log.Infof("start to tranfer file...")
+	c.DataFromReader(http.StatusAccepted, fileInfo.Size, "binary", file, nil)
 }
 
 func UploadHandle(c *gin.Context) {
@@ -273,28 +262,31 @@ func UploadHandle(c *gin.Context) {
 	filePath := strings.Trim(c.Param("path"), "/")
 	filePath = utils.AccountFilePath(account, filePath)
 
-	jsonBytes, err := ioutil.ReadAll(c.Request.Body)
+	isDir, _ := strconv.ParseBool(c.GetHeader("Is-Dir"))
+
+	shouldTruncate, _ := strconv.ParseBool(c.GetHeader("Should-Truncate"))
+
+	fileSize, err := strconv.ParseInt(c.GetHeader("Content-Length"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusOK, models.Response{
-			StatusCode: consts.StatusCode_IoError,
-			Message:    fmt.Sprintf("read request body error: %+v", err),
-		})
+		c.Error(err)
 		return
 	}
 
-	var req models.UploadRequest
-	if err = utils.GetJsonDecoder().Unmarshal(jsonBytes, &req); err != nil {
-		c.JSON(http.StatusOK, models.Response{
-			StatusCode: consts.StatusCode_InternalError,
-			Message:    err.Error(),
-		})
-		return
-	}
+	// jsonStr := c.GetHeader("FileInfo")
 
-	fileInfo := req.FileInfo
+	// var req models.UploadRequest
+	// if err := utils.GetJsonDecoder().Unmarshal([]byte(jsonStr), &req); err != nil {
+	// 	c.JSON(http.StatusOK, models.Response{
+	// 		StatusCode: consts.StatusCode_InternalError,
+	// 		Message:    err.Error(),
+	// 	})
+	// 	return
+	// }
+
+	// fileInfo := req.FileInfo
 
 	fileDir := filePath
-	if !fileInfo.IsDir {
+	if !isDir {
 		fileDir = filepath.Dir(fileDir)
 	}
 	if err := GetEnv().MkdirAll(fileDir, 0666); err != nil {
@@ -304,26 +296,26 @@ func UploadHandle(c *gin.Context) {
 		})
 		return
 	}
-	if fileInfo.IsDir {
+	if isDir {
 		utils.Response(c, consts.StatusCode_Ok, "mkdir done")
 		return
 	}
 
 	// Check account storage capability
-	if account.Usage+fileInfo.Size > account.Cap {
+	if account.Usage+fileSize > account.Cap {
 		c.JSON(http.StatusOK, models.Response{
 			StatusCode: consts.StatusCode_FileTooLarge,
 			Message: fmt.Sprintf("no enough cap, free storage: %vMiB, and size of the file: %vMiB",
-				(account.Cap-account.Usage)>>20, fileInfo.Size>>20), // Convert Byte to MB
+				(account.Cap-account.Usage)>>20, fileSize>>20), // Convert Byte to MB
 		})
 		return
 	}
 
 	flags := os.O_CREATE | os.O_WRONLY
-	if req.ShouldTruncate {
+	if shouldTruncate {
 		flags |= os.O_TRUNC
 	}
-	GetEnv().SetFileInfo(filePath, fileInfo)
+
 	file, err := GetEnv().OpenFile(filePath, flags, 0666)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to open file %s, err=%v", filePath, err)
@@ -331,39 +323,21 @@ func UploadHandle(c *gin.Context) {
 		utils.Response(c, consts.StatusCode_IoError, errMsg)
 		return
 	}
-	task := GetFileTransferor().CreateTask(fileInfo, file, consts.DataTaskType_Upload, 0)
 
-	GetAccountStore().AddUsage(account.Email, fileInfo.Size)
-
-	offset := int64(0)
-
-	if !req.ShouldTruncate {
-		existFileInfo, err := GetEnv().Stat(filePath)
-		if err != nil {
-			offset = existFileInfo.Size
-		}
-	}
-
-	resp := models.UploadResponse{
-		NodeAddr: config.IpAddr + consts.FileTransferorListenPortStr,
-		TaskId:   task.Id,
-		Offset:   offset,
-	}
-
-	respBytes, err := utils.GetJsonEncoder().Marshal(&resp)
+	n, err := io.Copy(file, c.Request.Body)
 	if err != nil {
-		c.JSON(http.StatusOK, models.Response{
-			StatusCode: consts.StatusCode_InternalError,
-			Message:    err.Error(),
-		})
+		log.Errorf("failed to write file=%s, err=%+v, writtenBytes=%v", filePath, err, n)
 		return
 	}
 
-	c.JSON(http.StatusOK, models.Response{
-		StatusCode: consts.StatusCode_Ok,
-		Message:    "upload task created",
-		Data:       string(respBytes),
-	})
+	fileInfo := models.FileInfo{
+		FilePath:   strings.TrimPrefix(filePath, utils.GetAccountDataDir(account.Id)+"/"),
+		Size:       n,
+		ModifyTime: timestamppb.Now(),
+	}
+	GetEnv().SetFileInfo(filePath, fileInfo)
+
+	GetAccountStore().AddUsage(account.Email, fileInfo.Size)
 }
 
 func DeleteHandle(c *gin.Context) {
@@ -395,7 +369,7 @@ func DeleteHandle(c *gin.Context) {
 	GetAccountStore().AddUsage(account.Email, -fileInfo.Size)
 
 	resp := models.DeleteResponse{
-		FileInfo: fileInfo,
+		FileInfo: &fileInfo,
 	}
 	respBytes, err := utils.GetJsonEncoder().Marshal(&resp)
 	if err != nil {
@@ -583,37 +557,19 @@ func GetSharedFileHandle(c *gin.Context) {
 	}
 
 	// range
-	var begin, _ int64 = 0, fileInfo.Size - 1
+	var begin, end int64 = 0, fileInfo.Size - 1
 	bytesRange := c.GetHeader("Range")
 	if len(bytesRange) > 0 {
-		begin, _ = utils.UnpackRange(bytesRange)
+		begin, end = utils.UnpackRange(bytesRange)
 	}
 
-	uFileInfo := fileInfo
 	file, _ := GetEnv().Open(fileInfo.FilePath)
-	uFileInfo.FilePath, _ = filepath.Rel(utils.GetAccountDataDir(account.Id), uFileInfo.FilePath)
-	uFileInfo.FilePath = strings.ReplaceAll(uFileInfo.FilePath, "\\", "/")
+	file.Seek(begin, io.SeekStart)
+
+	fileInfo.FilePath, _ = filepath.Rel(utils.GetAccountDataDir(account.Id), fileInfo.FilePath)
+	fileInfo.FilePath = strings.ReplaceAll(fileInfo.FilePath, "\\", "/")
 
 	log.Infof("clientIp=%+v", c.ClientIP())
-	task := GetFileTransferor().CreateTask(uFileInfo, file, consts.DataTaskType_Download, begin)
-	resp := models.DownloadResponse{
-		NodeAddr: config.IpAddr + consts.FileTransferorListenPortStr,
-		TaskId:   task.Id,
-		FileInfo: uFileInfo,
-	}
-	log.Infof("downloadResp=%+v", resp)
-	respBytes, err := utils.GetJsonEncoder().Marshal(&resp)
-	if err != nil {
-		c.JSON(http.StatusOK, models.Response{
-			StatusCode: consts.StatusCode_InternalError,
-			Message:    err.Error(),
-		})
-		return
-	}
 
-	c.JSON(http.StatusOK, models.Response{
-		StatusCode: consts.StatusCode_Ok,
-		Message:    "download task created",
-		Data:       string(respBytes),
-	})
+	c.DataFromReader(http.StatusAccepted, end-begin+1, "binary", file, nil)
 }

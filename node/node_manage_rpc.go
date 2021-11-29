@@ -105,7 +105,8 @@ func (node *StorageNode) ReportFileInfos() {
 
 		path = strings.Trim(strings.ReplaceAll(path, "\\", "/"), "/")
 
-		req.FileInfos = append(req.FileInfos, utils.NewFileInfo(info, path))
+		fileInfo := utils.NewFileInfo(info, path)
+		req.FileInfos = append(req.FileInfos, &fileInfo)
 		if len(req.FileInfos) >= consts.ReportFileInfoBatchSize {
 			_, err = node.manageClient.ReportFileInfos(ctx, req)
 			if err != nil {

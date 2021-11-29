@@ -20,10 +20,10 @@ func NewLocalFile(file *os.File, path string) *LocalFile {
 	}
 }
 
-func (l *LocalFile) Stat() (*models.FileInfo, error) {
+func (l *LocalFile) Stat() (models.FileInfo, error) {
 	inner, err := l.file.Stat()
 	if err != nil {
-		return &models.FileInfo{}, err
+		return models.FileInfo{}, err
 	}
 
 	return utils.NewFileInfo(inner, l.path), nil
@@ -68,8 +68,8 @@ func NewPipeFile(fileInfo *models.FileInfo) *PipeFile {
 	}
 }
 
-func (l *PipeFile) Stat() (*models.FileInfo, error) {
-	return l.fileInfo, nil
+func (l *PipeFile) Stat() (models.FileInfo, error) {
+	return *l.fileInfo, nil
 }
 
 func (l *PipeFile) Seek(offset int64, whence int) (int64, error) {
