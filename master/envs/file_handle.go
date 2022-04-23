@@ -31,8 +31,8 @@ func NewRemoteFile(flag int, perm os.FileMode, fileInfo *models.FileInfo) *Remot
 	}
 }
 
-func (file *RemoteFile) Stat() (*models.FileInfo, error) {
-	return file.FileInfo, nil
+func (file *RemoteFile) Stat() (models.FileInfo, error) {
+	return *file.FileInfo, nil
 }
 
 func (file *RemoteFile) Seek(offset int64, whence int) (int64, error) {

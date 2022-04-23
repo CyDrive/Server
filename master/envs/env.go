@@ -143,16 +143,16 @@ func (env *RemoteEnv) Chtimes(name string, atime time.Time, mtime time.Time) err
 	return nil
 }
 
-func (env *RemoteEnv) Stat(name string) (*models.FileInfo, error) {
+func (env *RemoteEnv) Stat(name string) (models.FileInfo, error) {
 	fileInfo, ok := env.getFileInfo(name)
 	if !ok {
-		return fileInfo, os.ErrNotExist
+		return models.FileInfo{}, os.ErrNotExist
 	}
 
-	return fileInfo, nil
+	return *fileInfo, nil
 }
 
-func (env *RemoteEnv) ReadDir(dirname string) ([]*models.FileInfo, error) {
+func (env *RemoteEnv) ReadDir(dirname string) ([]models.FileInfo, error) {
 	entriesI, ok := env.metaMap.Load(dirname)
 	if !ok {
 		return nil, os.ErrNotExist
@@ -163,7 +163,7 @@ func (env *RemoteEnv) ReadDir(dirname string) ([]*models.FileInfo, error) {
 		return nil, os.ErrInvalid
 	}
 
-	fileInfoList := []*models.FileInfo{}
+	fileInfoList := []models.FileInfo{}
 	for _, entry := range *entries {
 		fileInfoI, ok := env.metaMap.Load(entry)
 		if !ok {
@@ -172,20 +172,19 @@ func (env *RemoteEnv) ReadDir(dirname string) ([]*models.FileInfo, error) {
 
 		fileInfo, ok := fileInfoI.(*models.FileInfo)
 		if !ok { // it's a subfolder
-			fileInfoList = append(fileInfoList, &models.FileInfo{
+			fileInfoList = append(fileInfoList, models.FileInfo{
 				FilePath: entry,
 				IsDir:    true,
 			})
 		} else {
-			copyFileInfo := *fileInfo
-			fileInfoList = append(fileInfoList, &copyFileInfo)
+			fileInfoList = append(fileInfoList, *fileInfo)
 		}
 	}
 
 	return fileInfoList, nil
 }
 
-func (env *RemoteEnv) SetFileInfo(name string, fileInfo *models.FileInfo) error {
+func (env *RemoteEnv) SetFileInfo(name string, fileInfo models.FileInfo) error {
 	err := env.MkdirAll(filepath.Dir(name), 0666)
 	if err != nil {
 		return err

@@ -85,7 +85,7 @@ func (s *NodeManageServer) ReportFileInfos(ctx context.Context, req *rpc.ReportF
 	for _, fileInfo := range req.FileInfos {
 		// update MetaMap
 		log.Infof("set file info: filepath=%s, fileInfo=%+v", fileInfo.FilePath, fileInfo)
-		GetEnv().SetFileInfo(fileInfo.FilePath, fileInfo)
+		GetEnv().SetFileInfo(fileInfo.FilePath, *fileInfo)
 
 		// record the node to serve the file
 		node := GetNodeManager().GetNode(req.Id)

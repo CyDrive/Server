@@ -1,4 +1,4 @@
 ipv4_addr: "127.0.0.1"
 account_store_type: "mem"
 message_store_type: "mem"
-env_type: "remote"
+env_type: "local"
